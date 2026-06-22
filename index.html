@@ -308,6 +308,7 @@
         margin-right: 4px;
         vertical-align: middle;
       }
+
     </style>
   </head>
   <body>
@@ -462,11 +463,20 @@
       </div>
     </section>
 
+    <!-- ETAPA 6: RELATÓRIO PDF -->
+    <section class="cartao oculto" id="secRelatorio">
+      <h2>6. Relatório PDF</h2>
+      <button id="btnRelatorio" type="button">Gerar relatório PDF</button>
+      <span id="progressoPdf" class="dica"></span>
+    </section>
+
     <script
       src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
       integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
       crossorigin=""
     ></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
     <script>
       /* ============================================================
    ESTADO GLOBAL
@@ -1677,6 +1687,417 @@
       }
 
       /* ============================================================
+   RELATÓRIO PDF
+   ============================================================ */
+
+      const PDF_MARGEM_MM = 10;
+      const A4_LARGURA_MM = 210;
+      const A4_ALTURA_MM = 297;
+      const TILE_PX = 256;
+      // Fonte Unicode embutida no PDF (a fonte padrão do jsPDF quebra acentos/copiar-colar).
+      const URL_FONTE_NORMAL = "https://cdn.jsdelivr.net/npm/dejavu-fonts-ttf@2.37.3/ttf/DejaVuSans.ttf";
+      const URL_FONTE_BOLD = "https://cdn.jsdelivr.net/npm/dejavu-fonts-ttf@2.37.3/ttf/DejaVuSans-Bold.ttf";
+      let FONTE_B64 = null; // cache do TTF em base64 entre gerações
+      let FONTE_ATIVA = "helvetica"; // vira "DejaVu" quando a fonte é registrada
+
+      document
+        .getElementById("btnRelatorio")
+        .addEventListener("click", gerarRelatorioPdf);
+
+      // Gera e baixa o PDF. Texto e tabelas são nativos do jsPDF (selecionáveis, leves); os mapas
+      // são imagens JPEG compostas de tiles + rota desenhada (sem html2canvas), garantindo
+      // alinhamento e arquivo pequeno.
+      async function gerarRelatorioPdf() {
+        if (!DADOS || !TRECHOS.length) {
+          alert("Carregue um arquivo antes de gerar o relatório.");
+          return;
+        }
+        const botao = document.getElementById("btnRelatorio");
+        botao.disabled = true;
+        try {
+          setProgressoPdf("Preparando rotas…");
+          await calcularRotaCompleta("ida");
+          await calcularRotaCompleta("volta");
+          await montarPdf();
+          setProgressoPdf("Pronto.");
+        } catch (e) {
+          setProgressoPdf("Erro ao gerar PDF: " + e.message);
+          alert("Erro ao gerar PDF: " + e.message);
+        } finally {
+          botao.disabled = false;
+        }
+      }
+
+      // Monta o documento jsPDF: faixa de título, resumo (matrizes adotadas), mapa geral e, por
+      // trecho, faixa com nome + distâncias/adotado, e mapa (esquerda) + tabela de pontos (direita).
+      async function montarPdf() {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF({ unit: "mm", format: "a4" });
+        await registrarFontePdf(doc); // define FONTE_ATIVA (DejaVu se carregar; senão helvetica)
+        doc.setFont(FONTE_ATIVA, "normal");
+        const larguraUtil = A4_LARGURA_MM - 2 * PDF_MARGEM_MM;
+        const rodape = A4_ALTURA_MM - PDF_MARGEM_MM;
+        const corIda = hexParaRgb(getCss("--cor-ida"));
+        const corVolta = hexParaRgb(getCss("--cor-volta"));
+
+        const info = RAW.Info || {};
+        const codigo = `${String(info.Autos || "").padStart(4, "0")}/${info.Origem || ""}/${info.AnoOrigem || ""}`;
+
+        // Faixa de título
+        doc.setFillColor(29, 78, 216);
+        doc.rect(0, 0, A4_LARGURA_MM, 20, "F");
+        doc.setTextColor(255, 255, 255);
+        doc.setFont(FONTE_ATIVA, "bold");
+        doc.setFontSize(14);
+        doc.text(pdfSeguro(`Relatório de Distâncias - Autos de linha ${codigo}`), A4_LARGURA_MM / 2, 9, { align: "center" });
+        doc.setFont(FONTE_ATIVA, "normal");
+        doc.setFontSize(11);
+        doc.text(pdfSeguro(`Itinerário ${info.LetraItinerario || ""}.`), A4_LARGURA_MM / 2, 16, { align: "center" });
+        doc.setTextColor(0, 0, 0);
+        let y = 26;
+
+        // Resumo: matrizes de distâncias e tarifas adotadas
+        y = adicionarResumoPdf(doc, y, larguraUtil, rodape);
+
+        // Mapa geral: Ida (sólida) + Volta (tracejada), só seções e paradas (sem pontos de rota).
+        setProgressoPdf("Gerando mapa geral…");
+        if (y > rodape - 95) { doc.addPage(); y = PDF_MARGEM_MM; }
+        y = barraTitulo(doc, "Mapa geral — Ida e Volta", y, larguraUtil, [29, 78, 216], [255, 255, 255]);
+        legendaIdaVolta(doc, corIda, corVolta, y);
+        y += 5;
+        const imgGeral = await renderizarMapaImagem({
+          rotas: [
+            { coords: DADOS.ida.rotaCompleta, cor: getCss("--cor-ida") },
+            { coords: DADOS.volta.rotaCompleta, cor: getCss("--cor-volta"), tracejado: true },
+          ],
+          pontos: [...pontosDesenho(DADOS.ida.pontos), ...pontosDesenho(DADOS.volta.pontos)],
+          usarSat: !!document.getElementById("chkEdSat")?.checked,
+          semRota: true,
+          larguraPx: 1100,
+          alturaPx: 520,
+        });
+        const hGeral = (520 * larguraUtil) / 1100;
+        if (imgGeral) doc.addImage(imgGeral, "JPEG", PDF_MARGEM_MM, y, larguraUtil, hGeral);
+        y += hGeral + 8;
+
+        for (let ti = 0; ti < TRECHOS.length; ti++) {
+          setProgressoPdf(`Gerando trecho ${ti + 1}/${TRECHOS.length}…`);
+          const t = TRECHOS[ti];
+          const usarSat = !!document.getElementById(`chkSat_${ti}`)?.checked;
+
+          if (y > rodape - 100) { doc.addPage(); y = PDF_MARGEM_MM; }
+          y = barraTitulo(doc, `${rotuloSecao(t.origem)} » ${rotuloSecao(t.destino)}`, y, larguraUtil, [55, 65, 81], [255, 255, 255]);
+          doc.setFontSize(9);
+          doc.text(pdfSeguro(textoDistanciasPdf(t)), PDF_MARGEM_MM, y);
+          y += 4;
+          doc.text(pdfSeguro(textoAdotadoPdf(t)), PDF_MARGEM_MM, y);
+          y += 5;
+
+          y = await linhaMapaTabela(doc, "Ida", t.coordsIda, pontosDoTrechoIda(t), getCss("--cor-ida"), corIda, false, usarSat, y, larguraUtil, rodape);
+          y = await linhaMapaTabela(doc, "Volta", t.coordsVolta, pontosDoTrechoVolta(t), getCss("--cor-volta"), corVolta, true, usarSat, y, larguraUtil, rodape);
+          y += 6;
+        }
+
+        doc.save(`${codigoLinha()} - Relatorio requilometragem - ${carimboData()}.pdf`);
+      }
+
+      // Uma "linha" do trecho: rótulo colorido do sentido, mapa (imagem) à esquerda e tabela
+      // de pontos (autoTable) à direita.
+      async function linhaMapaTabela(doc, titulo, coords, pontos, corHex, corRgb, tracejado, usarSat, y, larguraUtil, rodape) {
+        const larguraMapaMM = larguraUtil * 0.5;
+        const alturaMapaMM = larguraMapaMM * 0.72;
+        if (y + alturaMapaMM + 6 > rodape) { doc.addPage(); y = PDF_MARGEM_MM; }
+        // rótulo do sentido (Ida/Volta) em destaque colorido
+        doc.setFont(FONTE_ATIVA, "bold");
+        doc.setFontSize(10);
+        doc.setTextColor(...corRgb);
+        doc.text(titulo, PDF_MARGEM_MM, y + 3);
+        doc.setDrawColor(...corRgb);
+        doc.setLineWidth(0.6);
+        doc.line(PDF_MARGEM_MM, y + 4.3, PDF_MARGEM_MM + 16, y + 4.3);
+        doc.setTextColor(0, 0, 0);
+        doc.setFont(FONTE_ATIVA, "normal");
+
+        const yMapa = y + 6;
+        const img = await renderizarMapaImagem({
+          rotas: [{ coords, cor: corHex, tracejado }],
+          pontos: pontosDesenho(pontos),
+          usarSat,
+          larguraPx: 640,
+          alturaPx: 460,
+        });
+        if (img) doc.addImage(img, "JPEG", PDF_MARGEM_MM, yMapa, larguraMapaMM, alturaMapaMM);
+        doc.autoTable({
+          startY: yMapa,
+          margin: { left: PDF_MARGEM_MM + larguraMapaMM + 4, right: PDF_MARGEM_MM },
+          tableWidth: larguraUtil - larguraMapaMM - 4,
+          styles: { font: FONTE_ATIVA, fontSize: 7, cellPadding: 1 },
+          headStyles: { fillColor: corRgb, textColor: 255 },
+          head: [["#", "Cidade", "Parada", "Tipo", "Lat", "Lon"]],
+          body: pontos.map((p, n) => [n + 1, pdfSeguro(p.cidade), pdfSeguro(p.parada), textoTipoTexto(p), String(p.lat), String(p.lon)]),
+        });
+        return Math.max(yMapa + alturaMapaMM, doc.lastAutoTable.finalY) + 4;
+      }
+
+      // Faixa colorida com título de seção; devolve o y abaixo dela.
+      function barraTitulo(doc, texto, y, larguraUtil, corFundo, corTexto) {
+        doc.setFillColor(...corFundo);
+        doc.rect(PDF_MARGEM_MM, y, larguraUtil, 7, "F");
+        doc.setTextColor(...corTexto);
+        doc.setFont(FONTE_ATIVA, "bold");
+        doc.setFontSize(11);
+        doc.text(pdfSeguro(texto), PDF_MARGEM_MM + 2, y + 5);
+        doc.setFont(FONTE_ATIVA, "normal");
+        doc.setTextColor(0, 0, 0);
+        return y + 10;
+      }
+
+      function legendaIdaVolta(doc, corIda, corVolta, y) {
+        doc.setFontSize(8);
+        doc.setTextColor(...corIda);
+        doc.text("— Ida (linha cheia)", PDF_MARGEM_MM, y + 1);
+        doc.setTextColor(...corVolta);
+        doc.text("---- Volta (tracejada)", PDF_MARGEM_MM + 45, y + 1);
+        doc.setTextColor(0, 0, 0);
+      }
+
+      // Matrizes-resumo (distâncias e tarifas adotadas) com legenda numerada das seções.
+      function adicionarResumoPdf(doc, y, larguraUtil, rodape) {
+        const secoes = DADOS.ida.secoes;
+        y = barraTitulo(doc, "Resumo — seções (numeração das matrizes)", y, larguraUtil, [240, 242, 245], [20, 20, 20]);
+        doc.setFontSize(8);
+        const legenda = secoes.map((s, i) => `${i + 1}: ${rotuloSecao(s)}`).join("    ");
+        const linhas = doc.splitTextToSize(pdfSeguro(legenda), larguraUtil);
+        doc.text(linhas, PDF_MARGEM_MM, y);
+        y += linhas.length * 3.6 + 4;
+
+        y = matrizPdf(doc, "Distâncias adotadas (km)", y, larguraUtil, rodape, (c, r) => {
+          const reg = VALORES_EXPORT[`${c}-${r}`] || {};
+          return reg.dist != null && reg.dist !== "" ? reg.dist : "-";
+        });
+        y = matrizPdf(doc, "Tarifas adotadas", y, larguraUtil, rodape, (c, r) => {
+          const reg = VALORES_EXPORT[`${c}-${r}`] || {};
+          return reg.tarifa != null && reg.tarifa !== "" ? reg.tarifa : "-";
+        });
+        return y;
+      }
+
+      // Matriz triangular inferior (rótulos = números das seções na ordem da Ida) via autoTable.
+      function matrizPdf(doc, titulo, y, larguraUtil, rodape, valor) {
+        const secoes = DADOS.ida.secoes;
+        const N = secoes.length;
+        if (y > rodape - 20) { doc.addPage(); y = PDF_MARGEM_MM; }
+        y = barraTitulo(doc, titulo, y, larguraUtil, [240, 242, 245], [20, 20, 20]);
+        const head = [[""].concat(secoes.map((s, i) => String(i + 1)))];
+        const body = [];
+        for (let r = 0; r < N; r++) {
+          const linha = [String(r + 1)];
+          for (let c = 0; c < N; c++) {
+            linha.push(c === r ? "X" : c > r ? "" : valor(c, r));
+          }
+          body.push(linha);
+        }
+        doc.autoTable({
+          startY: y,
+          margin: { left: PDF_MARGEM_MM, right: PDF_MARGEM_MM },
+          styles: { font: FONTE_ATIVA, fontSize: 7, cellPadding: 1, halign: "center" },
+          headStyles: { fillColor: [55, 65, 81], textColor: 255 },
+          columnStyles: { 0: { fillColor: [240, 242, 245], fontStyle: "bold" } },
+          head,
+          body,
+        });
+        return doc.lastAutoTable.finalY + 6;
+      }
+
+      function hexParaRgb(hex) {
+        const h = hex.replace("#", "");
+        return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)];
+      }
+
+      // Com a fonte Unicode (DejaVu) ativa, nada a sanitizar. Só no fallback Helvetica (Latin-1)
+      // troca a seta por » e remove caracteres fora de Latin-1 que apareceriam como lixo.
+      function pdfSeguro(s) {
+        const txt = String(s == null ? "" : s);
+        if (FONTE_ATIVA === "DejaVu") return txt;
+        return txt.replace(/→/g, "»").replace(/[^\x00-\xFF]/g, "?");
+      }
+
+      function textoDistanciasPdf(t) {
+        return `Distância — Ida: ${formatarKm(t.distIda)} km | Volta: ${formatarKm(t.distVolta)} km | Média: ${formatarKm(t.distMedia)} km`;
+      }
+
+      // "Adotado": distância e tarifa adotadas (VALORES_EXPORT). Tarifa "-" quando não há
+      // seccionamento/venda (par sem tarifa).
+      function textoAdotadoPdf(t) {
+        const reg = VALORES_EXPORT[`${t.i}-${t.k}`] || {};
+        const distAdo =
+          reg.dist != null && reg.dist !== ""
+            ? reg.dist
+            : t.distMedia != null
+              ? formatarKm(t.distMedia)
+              : "-";
+        const tarifaAdo = reg.tarifa != null && reg.tarifa !== "" ? reg.tarifa : "-";
+        return `Adotado — distância: ${distAdo} | tarifa: ${tarifaAdo}`;
+      }
+
+      function pontosDesenho(pontos) {
+        const ordem = ordemPontos(pontos);
+        return pontos.map((p) => ({
+          lat: p.lat, lon: p.lon, secao: p.secao, ehRota: p.ehRota, numero: ordem.get(p),
+        }));
+      }
+
+      function textoTipoTexto(p) {
+        return p.ehRota ? "Rota" : p.secao ? "Seção" : "Parada";
+      }
+
+      // Compositor de mapa: baixa os tiles que cobrem rota/pontos e desenha rota + marcadores com
+      // a MESMA projeção Web Mercator (garante alinhamento). Devolve um JPEG (dataURL) compacto.
+      async function renderizarMapaImagem({ rotas, pontos, usarSat, semRota, larguraPx, alturaPx }) {
+        const lats = [], lons = [];
+        rotas.forEach((r) => (r.coords || []).forEach((c) => { lats.push(c[0]); lons.push(c[1]); }));
+        pontos.forEach((p) => { if (isFinite(p.lat) && isFinite(p.lon)) { lats.push(p.lat); lons.push(p.lon); } });
+        if (!lats.length) return null;
+        const norte = Math.max(...lats), sul = Math.min(...lats), leste = Math.max(...lons), oeste = Math.min(...lons);
+
+        const margem = 24;
+        let z = 18;
+        for (; z > 0; z--) {
+          const a = projetarPx(norte, oeste, z), b = projetarPx(sul, leste, z);
+          if (b.x - a.x <= larguraPx - 2 * margem && b.y - a.y <= alturaPx - 2 * margem) break;
+        }
+        const centro = projetarPx((norte + sul) / 2, (leste + oeste) / 2, z);
+        const ox = centro.x - larguraPx / 2, oy = centro.y - alturaPx / 2;
+
+        const canvas = document.createElement("canvas");
+        canvas.width = larguraPx;
+        canvas.height = alturaPx;
+        const ctx = canvas.getContext("2d");
+        ctx.fillStyle = "#e8e8e8";
+        ctx.fillRect(0, 0, larguraPx, alturaPx);
+
+        const tpls = usarSat
+          ? [URL_TILE_SATELITE, URL_TILE_RUAS_ROTULOS, URL_TILE_LOCAIS_ROTULOS]
+          : [URL_TILE_RUAS];
+        const n = Math.pow(2, z);
+        const tx0 = Math.floor(ox / TILE_PX), tx1 = Math.floor((ox + larguraPx) / TILE_PX);
+        const ty0 = Math.floor(oy / TILE_PX), ty1 = Math.floor((oy + alturaPx) / TILE_PX);
+        for (const tpl of tpls) {
+          const cargas = [];
+          for (let tx = tx0; tx <= tx1; tx++) {
+            for (let ty = ty0; ty <= ty1; ty++) {
+              if (tx < 0 || ty < 0 || tx >= n || ty >= n) continue;
+              const url = tpl
+                .replace("{s}", "a")
+                .replace("{z}", z)
+                .replace("{x}", tx)
+                .replace("{y}", ty);
+              const dx = tx * TILE_PX - ox, dy = ty * TILE_PX - oy;
+              cargas.push(carregarImagem(url).then((img) => { if (img) ctx.drawImage(img, dx, dy); }));
+            }
+          }
+          await Promise.all(cargas); // camada por camada, na ordem correta do híbrido
+        }
+
+        rotas.forEach((r) => {
+          if (!r.coords || !r.coords.length) return;
+          ctx.beginPath();
+          r.coords.forEach((c, i) => {
+            const p = projetarPx(c[0], c[1], z);
+            const px = p.x - ox, py = p.y - oy;
+            i ? ctx.lineTo(px, py) : ctx.moveTo(px, py);
+          });
+          ctx.strokeStyle = r.cor;
+          ctx.lineWidth = 3;
+          ctx.setLineDash(r.tracejado ? [8, 6] : []);
+          ctx.stroke();
+        });
+        ctx.setLineDash([]);
+
+        pontos.forEach((p) => {
+          if (!isFinite(p.lat) || !isFinite(p.lon)) return;
+          if (semRota && p.ehRota) return;
+          const pr = projetarPx(p.lat, p.lon, z);
+          const px = pr.x - ox, py = pr.y - oy;
+          const cor = p.ehRota ? getCss("--cor-rota") : p.secao ? getCss("--cor-secao") : getCss("--cor-parada");
+          const raio = p.secao ? 9 : 5;
+          ctx.beginPath();
+          ctx.arc(px, py, raio, 0, 2 * Math.PI);
+          ctx.fillStyle = cor;
+          ctx.fill();
+          ctx.lineWidth = 2;
+          ctx.strokeStyle = "#fff";
+          ctx.stroke();
+          if (p.secao && p.numero != null) {
+            ctx.fillStyle = "#fff";
+            ctx.font = "bold 11px sans-serif";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.fillText(String(p.numero), px, py);
+          }
+        });
+
+        return canvas.toDataURL("image/jpeg", 0.82);
+      }
+
+      // Projeção Web Mercator → pixel global no zoom z (tile de 256px).
+      function projetarPx(lat, lon, z) {
+        const escala = TILE_PX * Math.pow(2, z);
+        const x = ((lon + 180) / 360) * escala;
+        const rad = (lat * Math.PI) / 180;
+        const y = ((1 - Math.log(Math.tan(rad) + 1 / Math.cos(rad)) / Math.PI) / 2) * escala;
+        return { x, y };
+      }
+
+      function carregarImagem(url) {
+        return new Promise((resolve) => {
+          const img = new Image();
+          img.crossOrigin = "anonymous";
+          img.onload = () => resolve(img);
+          img.onerror = () => resolve(null);
+          img.src = url;
+        });
+      }
+
+      function setProgressoPdf(txt) {
+        document.getElementById("progressoPdf").textContent = txt;
+      }
+
+      // Registra a fonte Unicode (DejaVu) no documento. Em falha, mantém "helvetica" como fallback.
+      async function registrarFontePdf(doc) {
+        try {
+          if (!FONTE_B64) {
+            setProgressoPdf("Carregando fonte…");
+            FONTE_B64 = {
+              normal: await baixarBase64(URL_FONTE_NORMAL),
+              bold: await baixarBase64(URL_FONTE_BOLD),
+            };
+          }
+          doc.addFileToVFS("DejaVuSans.ttf", FONTE_B64.normal);
+          doc.addFont("DejaVuSans.ttf", "DejaVu", "normal");
+          doc.addFileToVFS("DejaVuSans-Bold.ttf", FONTE_B64.bold);
+          doc.addFont("DejaVuSans-Bold.ttf", "DejaVu", "bold");
+          FONTE_ATIVA = "DejaVu";
+          return true;
+        } catch (e) {
+          FONTE_ATIVA = "helvetica";
+          return false;
+        }
+      }
+
+      async function baixarBase64(url) {
+        const resp = await fetch(url);
+        if (!resp.ok) throw new Error("fonte HTTP " + resp.status);
+        const bytes = new Uint8Array(await resp.arrayBuffer());
+        let bin = "";
+        const passo = 0x8000; // converte em blocos para não estourar a pilha de argumentos
+        for (let i = 0; i < bytes.length; i += passo) {
+          bin += String.fromCharCode.apply(null, bytes.subarray(i, i + passo));
+        }
+        return btoa(bin);
+      }
+
+      /* ============================================================
    UTILITÁRIOS
    ============================================================ */
 
@@ -1812,7 +2233,7 @@
       }
 
       function revelarEtapas() {
-        ["secEdicao", "secTrechos", "secResumo", "secExportar"].forEach((id) =>
+        ["secEdicao", "secTrechos", "secResumo", "secExportar", "secRelatorio"].forEach((id) =>
           document.getElementById(id).classList.remove("oculto"),
         );
       }
