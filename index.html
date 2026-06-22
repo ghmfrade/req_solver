@@ -1,0 +1,1833 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Recálculo de distâncias entre seções tarifárias</title>
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+      crossorigin=""
+    />
+    <style>
+      :root {
+        --cor-secao: #d62828;
+        --cor-parada: #1d4ed8;
+        --cor-rota: #198754;
+        --cor-ida: #1d4ed8;
+        --cor-volta: #c026d3;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        font-family:
+          system-ui,
+          -apple-system,
+          "Segoe UI",
+          Roboto,
+          sans-serif;
+        margin: 0;
+        padding: 16px;
+        background: #f4f5f7;
+        color: #1a1a1a;
+        line-height: 1.4;
+      }
+      h1 {
+        font-size: 20px;
+        margin: 0 0 4px;
+      }
+      h2 {
+        font-size: 16px;
+        margin: 0 0 12px;
+      }
+      h3 {
+        font-size: 14px;
+        margin: 0 0 8px;
+      }
+      section.cartao {
+        background: #fff;
+        border: 1px solid #e0e0e0;
+        border-radius: 8px;
+        padding: 16px;
+        margin-bottom: 16px;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+      }
+      .oculto {
+        display: none !important;
+      }
+      .linha {
+        display: flex;
+        gap: 16px;
+        flex-wrap: wrap;
+        align-items: center;
+      }
+      button {
+        background: #1d4ed8;
+        color: #fff;
+        border: 0;
+        border-radius: 6px;
+        padding: 8px 14px;
+        font-size: 14px;
+        cursor: pointer;
+      }
+      button:hover {
+        background: #1741b0;
+      }
+      button.secundario {
+        background: #e5e7eb;
+        color: #1a1a1a;
+      }
+      button.secundario:hover {
+        background: #d4d6da;
+      }
+      input[type="file"] {
+        font-size: 13px;
+      }
+      label {
+        font-size: 13px;
+      }
+
+      /* Layout mapa + tabela */
+      .mapa-tabela {
+        display: flex;
+        gap: 12px;
+        align-items: stretch;
+      }
+      .mapa-tabela .lado-mapa {
+        flex: 1 1 55%;
+        min-width: 320px;
+      }
+      .mapa-tabela .lado-tabela {
+        flex: 1 1 45%;
+        min-width: 280px;
+        max-height: 460px;
+        overflow: auto;
+      }
+      .leaflet-container {
+        height: 460px;
+        border-radius: 6px;
+      }
+      .cartao-trecho .leaflet-container {
+        height: 360px;
+      }
+
+      table {
+        border-collapse: collapse;
+        width: 100%;
+        font-size: 12.5px;
+      }
+      th,
+      td {
+        border: 1px solid #e2e2e2;
+        padding: 4px 6px;
+        text-align: left;
+      }
+      th {
+        background: #f0f2f5;
+        position: sticky;
+        top: 0;
+        z-index: 1;
+      }
+      td input {
+        width: 100%;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        padding: 2px 4px;
+        font-size: 12px;
+      }
+      td input[type="checkbox"] {
+        width: auto;
+      }
+      button.ver {
+        background: transparent;
+        padding: 0 4px;
+        font-size: 14px;
+        line-height: 1;
+      }
+      button.ver:hover {
+        background: #eef;
+      }
+
+      /* Ícones de marcador por tipo de ponto */
+      .marcador {
+        width: 14px;
+        height: 14px;
+        border-radius: 50%;
+        border: 2px solid #fff;
+        box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.3);
+      }
+      .marcador.secao {
+        background: var(--cor-secao);
+      }
+      .marcador.parada {
+        background: var(--cor-parada);
+      }
+      .marcador.rota {
+        background: var(--cor-rota);
+      }
+      /* ponto numerado: marcador maior com o número da ordem dentro (qualquer tipo) */
+      .marcador.num {
+        width: 20px;
+        height: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #fff;
+        font-size: 11px;
+        font-weight: 700;
+      }
+
+      .titulo-sentido {
+        font-size: 13px;
+        margin: 10px 0 4px;
+      }
+      .titulo-sentido:first-child {
+        margin-top: 0;
+      }
+      .titulo-sentido .amostra {
+        display: inline-block;
+        width: 18px;
+        height: 0;
+        vertical-align: middle;
+        border-top: 3px solid;
+        margin-right: 6px;
+      }
+
+      .tag {
+        display: inline-block;
+        padding: 1px 6px;
+        border-radius: 10px;
+        font-size: 11px;
+        color: #fff;
+      }
+      .tag.secao {
+        background: var(--cor-secao);
+      }
+      .tag.parada {
+        background: var(--cor-parada);
+      }
+      .tag.rota {
+        background: var(--cor-rota);
+      }
+
+      .badge {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 6px;
+        font-size: 12px;
+        font-weight: 600;
+      }
+      .badge.ok {
+        background: #d1fae5;
+        color: #065f46;
+      }
+      .badge.pendente {
+        background: #fef3c7;
+        color: #92400e;
+      }
+      .badge.erro {
+        background: #fee2e2;
+        color: #991b1b;
+      }
+
+      .cartao-trecho {
+        border: 1px solid #e0e0e0;
+        border-radius: 8px;
+        padding: 12px;
+        margin-bottom: 14px;
+      }
+      .cartao-trecho .cabecalho {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        margin-bottom: 8px;
+        flex-wrap: wrap;
+      }
+
+      #progresso {
+        font-size: 13px;
+        color: #555;
+      }
+      #areaErro {
+        color: #991b1b;
+        font-size: 13px;
+      }
+
+      .matriz td,
+      .matriz th {
+        text-align: center;
+        white-space: nowrap;
+      }
+      .matriz td.diag {
+        background: #f0f2f5;
+        color: #888;
+      }
+      .matriz td.vazio {
+        background: #fafafa;
+      }
+      .matriz td.sem-venda {
+        background: #cfcfcf;
+        color: #6b6b6b;
+      } /* par sem venda de passagem */
+      .matriz td.menor {
+        background: #d1fae5;
+        color: #065f46;
+      } /* calculado < proposto */
+      .matriz td.maior {
+        background: #fee2e2;
+        color: #991b1b;
+      } /* calculado > proposto */
+      .matriz td[title] {
+        cursor: help;
+      }
+      .matriz input.cel-export {
+        width: 70px;
+        text-align: center;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        padding: 2px;
+        font-size: 12px;
+      }
+
+      .dica {
+        font-size: 12px;
+        color: #666;
+        margin: 4px 0 0;
+      }
+      .legenda span {
+        margin-right: 14px;
+        font-size: 12px;
+      }
+      .legenda i {
+        display: inline-block;
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        margin-right: 4px;
+        vertical-align: middle;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Relatório de distâncias entre seções tarifárias</h1>
+    <p class="dica">
+      Carregue um arquivo de itinerário (.txt com JSON). Opcionalmente, carregue
+      junto o arquivo de apoio para restaurar pontos de rota e seleções já
+      feitas.
+    </p>
+
+    <!-- ETAPA 1: CARREGAR -->
+    <section class="cartao" id="secCarregar">
+      <h2>1. Carregar arquivo</h2>
+      <div class="linha">
+        <label
+          >Itinerário (.txt):
+          <input type="file" id="arqPrincipal" accept=".txt,.json"
+        /></label>
+        <label
+          >Apoio (opcional):
+          <input type="file" id="arqApoio" accept=".txt,.json"
+        /></label>
+        <button id="btnCarregar">Carregar</button>
+      </div>
+      <p id="progresso"></p>
+      <p id="areaErro"></p>
+    </section>
+
+    <!-- ETAPA 2: EDITAR PONTOS -->
+    <section class="cartao oculto" id="secEdicao">
+      <h2>2. Editar pontos</h2>
+      <div class="linha" style="margin-bottom: 8px">
+        <label
+          ><input type="checkbox" id="chkMostrarIda" checked /> Mostrar Ida
+          (linha sólida)</label
+        >
+        <label
+          ><input type="checkbox" id="chkMostrarVolta" checked /> Mostrar Volta
+          (tracejada)</label
+        >
+        <label
+          ><input type="checkbox" id="chkEdParadas" checked /> Paradas</label
+        >
+        <label
+          ><input type="checkbox" id="chkEdRota" checked /> Pontos de
+          rota</label
+        >
+        <label
+          ><input type="checkbox" id="chkEdIndices" checked /> Índices</label
+        >
+        <label><input type="checkbox" id="chkEdSat" /> Satélite</label>
+        <button class="secundario" id="btnRecalcEdicao" type="button">
+          Recalcular rotas Ida/Volta
+        </button>
+        <span class="legenda">
+          <span><i style="background: var(--cor-secao)"></i>Seção</span>
+          <span><i style="background: var(--cor-parada)"></i>Parada</span>
+          <span><i style="background: var(--cor-rota)"></i>Ponto de rota</span>
+        </span>
+      </div>
+      <div class="mapa-tabela">
+        <div class="lado-mapa"><div id="mapaEdicao"></div></div>
+        <div class="lado-tabela">
+          <div class="linha" style="margin-bottom: 6px">
+            <label
+              ><input type="radio" name="sentidoEdicao" value="ida" checked />
+              Ida</label
+            >
+            <label
+              ><input type="radio" name="sentidoEdicao" value="volta" />
+              Volta</label
+            >
+          </div>
+          <div id="tabelaEdicao"></div>
+        </div>
+      </div>
+      <p class="dica">
+        Arraste um marcador no mapa ou edite lat/lon na tabela para corrigir a
+        geolocalização. O recálculo das rotas acontece nos mapas de trecho.
+      </p>
+    </section>
+
+    <!-- ETAPA 3: TRECHOS -->
+    <section class="cartao oculto" id="secTrechos">
+      <h2>3. Mapas de trecho (todas as combinações de seções)</h2>
+      <p class="dica">
+        Clique sobre a linha da rota para criar um ponto de rota; arraste pontos
+        para reposicionar; botão direito num ponto de rota para excluí-lo.
+        Desmarque um ponto para tirá-lo apenas deste trecho.
+      </p>
+      <div id="listaTrechos"></div>
+    </section>
+
+    <!-- ETAPA 4: RESUMO + MATRIZ -->
+    <section class="cartao oculto" id="secResumo">
+      <h2>4. Resumo</h2>
+      <h3>
+        Distâncias médias recalculadas (km)
+        <small style="font-weight: 400; color: #666"
+          >(passe o mouse na célula para ver tarifa e distância original)</small
+        >
+      </h3>
+      <div id="matrizMedia" style="overflow: auto"></div>
+      <h3 style="margin-top: 18px">
+        Tarifas considerando distâncias médias
+        <small style="font-weight: 400; color: #666"
+          >(verde = menor que o proposto, vermelho = maior; cinza = sem
+          venda)</small
+        >
+      </h3>
+      <div id="matrizTarifaMedia" style="overflow: auto"></div>
+    </section>
+
+    <!-- ETAPA 5: EXPORTAR -->
+    <section class="cartao oculto" id="secExportar">
+      <h2>5. Exportar</h2>
+
+      <button id="btnExportarSem">
+        Baixar recalculado SEM distâncias/tarifas + apoio
+      </button>
+      <p class="dica">
+        Atualiza lat/lon e gera o arquivo de apoio (pontos de rota e seleções
+        por trecho); <code>Distancias</code>/<code>Tarifas</code> ficam como no
+        original.
+      </p>
+
+      <h3 style="margin-top: 18px">
+        Distâncias e tarifas a gravar (editáveis)
+      </h3>
+      <p class="dica">
+        Pré-preenchidas com as distâncias médias do resumo. Edite as células se
+        quiser; pares sem venda permanecem sem tarifa. O segundo botão grava
+        exatamente estes valores.
+      </p>
+      <h4 class="titulo-sentido">Distâncias</h4>
+      <div id="matrizDistExport" style="overflow: auto"></div>
+      <h4 class="titulo-sentido">
+        Tarifas
+        <small style="font-weight: 400; color: #666"
+          >(cinza = par sem venda)</small
+        >
+      </h4>
+      <div id="matrizTarifaExport" style="overflow: auto"></div>
+
+      <div class="linha" style="margin-top: 12px">
+        <button class="secundario" id="btnResetExport" type="button">
+          Limpar alterações (voltar aos valores do resumo)
+        </button>
+        <button id="btnExportarCom">
+          Baixar recalculando distâncias e tarifas + apoio
+        </button>
+      </div>
+    </section>
+
+    <script
+      src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+      integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+      crossorigin=""
+    ></script>
+    <script>
+      /* ============================================================
+   ESTADO GLOBAL
+   ============================================================ */
+      let RAW = null; // JSON original parseado, intacto (fonte do clone na exportação)
+      let DADOS = null; // estado de trabalho: { ida, volta }, cada um { pontos:[], secoes:[] }
+      let TRECHOS = []; // um item por par de seções (i,k) com i<k, na ordem da Ida
+      let NOME_BASE = ""; // nome-base do arquivo carregado, para nomear as exportações
+      let APOIO_PENDENTE = null; // dados do arquivo de apoio aguardando aplicação após montar o estado
+      let VALORES_EXPORT = {}; // por par "i-k": { dist, tarifa } editáveis usados na exportação com recálculo
+
+      const MAPA = { edicao: null }; // instâncias Leaflet reaproveitadas (não recriar a cada render)
+      const OSRM_URL = "https://router.project-osrm.org/route/v1/driving/";
+
+      /* ============================================================
+   CARREGAR ARQUIVO
+   ============================================================ */
+      document
+        .getElementById("btnCarregar")
+        .addEventListener("click", carregar);
+
+      async function carregar() {
+        const arqPrincipal = document.getElementById("arqPrincipal").files[0];
+        const arqApoio = document.getElementById("arqApoio").files[0];
+        limparErro();
+        if (!arqPrincipal) {
+          mostrarErro("Selecione o arquivo de itinerário (.txt).");
+          return;
+        }
+
+        let texto;
+        try {
+          texto = await arqPrincipal.text();
+          RAW = JSON.parse(texto);
+        } catch (e) {
+          mostrarErro(
+            "Não foi possível ler/parsear o arquivo principal: " + e.message,
+          );
+          return;
+        }
+
+        NOME_BASE = arqPrincipal.name
+          .replace(/\.txt$/i, "")
+          .replace(/\.json$/i, "");
+
+        if (arqApoio) {
+          try {
+            APOIO_PENDENTE = JSON.parse(await arqApoio.text());
+          } catch (e) {
+            mostrarErro("Arquivo de apoio inválido (ignorado): " + e.message);
+            APOIO_PENDENTE = null;
+          }
+        } else {
+          APOIO_PENDENTE = null;
+        }
+
+        try {
+          montarEstado();
+        } catch (e) {
+          mostrarErro("Estrutura do arquivo inesperada: " + e.message);
+          return;
+        }
+
+        if (APOIO_PENDENTE) aplicarApoio(APOIO_PENDENTE);
+
+        montarTrechos();
+        if (APOIO_PENDENTE) aplicarSelecaoApoio();
+        revelarEtapas();
+        renderEsqueletoTrechos();
+        renderEdicao();
+
+        await calcularTudo();
+
+        renderResumo();
+        inicializarValoresExport();
+        renderTabelasExport();
+      }
+
+      // Monta DADOS a partir de RAW, normalizando lat/lon para número e marcando o tipo de cada ponto.
+      function montarEstado() {
+        DADOS = {
+          ida: montarSentido(RAW.Ida),
+          volta: montarSentido(RAW.Volta),
+        };
+        const nIda = DADOS.ida.secoes.length;
+        const nVolta = DADOS.volta.secoes.length;
+        if (nIda !== nVolta) {
+          mostrarErro(
+            `Aviso: número de seções diferente entre Ida (${nIda}) e Volta (${nVolta}). Seguindo assim mesmo.`,
+          );
+        }
+        if (nIda < 2)
+          throw new Error(
+            "São necessárias ao menos 2 seções para montar trechos.",
+          );
+      }
+
+      function montarSentido(src) {
+        const partidas = (src && src.Partidas) || [];
+        const pontos = partidas.map((p, idx) => ({
+          cidade: p.Cidade || "",
+          parada: p.Parada || "",
+          lat: parseFloat(p.Latitude),
+          lon: parseFloat(p.Longitude),
+          secao: p.Secao === true,
+          tipoSecao: p.TipoSecao,
+          ehRota: false,
+          indiceOriginal: idx, // posição em Partidas, para casar lat/lon na exportação
+        }));
+        const sentido = { pontos, secoes: [] };
+        recomputarSecoes(sentido);
+        return sentido;
+      }
+
+      // Recalcula a lista de referências de seção (objetos com secao=true) na ordem da sequência.
+      function recomputarSecoes(sentido) {
+        sentido.secoes = sentido.pontos.filter((p) => p.secao && !p.ehRota);
+      }
+
+      /* ============================================================
+   SEÇÕES E TRECHOS
+   ============================================================ */
+
+      // Pontos entre a iSec-ésima e a kSec-ésima seção, resolvidos por identidade do objeto.
+      function pontosEntre(sentido, iSec, kSec) {
+        const a = sentido.secoes[iSec],
+          b = sentido.secoes[kSec];
+        if (!a || !b) return [];
+        const ia = sentido.pontos.indexOf(a),
+          ib = sentido.pontos.indexOf(b);
+        const lo = Math.min(ia, ib),
+          hi = Math.max(ia, ib);
+        return sentido.pontos.slice(lo, hi + 1);
+      }
+
+      // Espelhamento Ida<->Volta: a i-ésima seção da Ida equivale à (N-1-i)-ésima da Volta.
+      function secaoVoltaEspelhada(iSec) {
+        return DADOS.volta.secoes.length - 1 - iSec;
+      }
+
+      // Índice triangular em Distancias/Tarifas (1-based, i<k, contando só seções).
+      function idxDistanciaOriginal(iSec, kSec) {
+        const I = iSec + 1,
+          K = kSec + 1;
+        return ((K - 1) * (K - 2)) / 2 + (I - 1);
+      }
+
+      // Gera todos os C(N,2) trechos (i<k) na ordem das seções da Ida, sem filtrar por tarifa.
+      function montarTrechos() {
+        TRECHOS = [];
+        const n = DADOS.ida.secoes.length;
+        for (let k = 1; k < n; k++) {
+          for (let i = 0; i < k; i++) {
+            TRECHOS.push({
+              i,
+              k,
+              origem: DADOS.ida.secoes[i],
+              destino: DADOS.ida.secoes[k],
+              distIda: null,
+              distVolta: null,
+              distMedia: null,
+              status: "pendente", // pendente | ok | erro
+              sujo: true, // precisa (re)calcular
+              erroMsg: "",
+              coordsIda: null,
+              coordsVolta: null, // geometria das rotas para desenhar
+              // opt-out por trecho: o padrão é incluir; aqui ficam só os pontos REMOVIDOS deste card
+              pontosExcluidos: { ida: new Set(), volta: new Set() },
+              mostrarIda: true,
+              mostrarVolta: true, // visibilidade de cada rota no mapa do card
+              mostrarParadas: true,
+              mostrarRota: true, // visibilidade por tipo de ponto (seções sempre visíveis)
+              mostrarIndices: true, // exibir o número de ordem dentro dos marcadores
+              mapa: null,
+              camadas: [], // instância Leaflet e camadas desenhadas
+            });
+          }
+        }
+      }
+
+      // Pontos do trecho num sentido, já aplicando o opt-out (endpoints nunca saem).
+      function pontosDoTrechoIda(t) {
+        const todos = pontosEntre(DADOS.ida, t.i, t.k);
+        return todos.filter(
+          (p) =>
+            p === t.origem || p === t.destino || !t.pontosExcluidos.ida.has(p),
+        );
+      }
+      function pontosDoTrechoVolta(t) {
+        const loV = secaoVoltaEspelhada(t.k),
+          hiV = secaoVoltaEspelhada(t.i);
+        const todos = pontosEntre(DADOS.volta, loV, hiV);
+        const origemV = DADOS.volta.secoes[loV],
+          destinoV = DADOS.volta.secoes[hiV];
+        return todos.filter(
+          (p) =>
+            p === origemV || p === destinoV || !t.pontosExcluidos.volta.has(p),
+        );
+      }
+
+      // Lista crua (sem opt-out) usada para montar a tabela de pontos do card.
+      function todosPontosTrechoIda(t) {
+        return pontosEntre(DADOS.ida, t.i, t.k);
+      }
+      function todosPontosTrechoVolta(t) {
+        return pontosEntre(
+          DADOS.volta,
+          secaoVoltaEspelhada(t.k),
+          secaoVoltaEspelhada(t.i),
+        );
+      }
+
+      /* ============================================================
+   OSRM
+   ============================================================ */
+
+      // Calcula a rota real entre uma sequência de pontos. Retorna { km, coords:[[lat,lon],...] }.
+      async function rotaOSRM(pontos) {
+        const validos = pontos.filter(
+          (p) => isFinite(p.lat) && isFinite(p.lon),
+        );
+        if (validos.length < 2) throw new Error("pontos insuficientes");
+        const coords = validos.map((p) => `${p.lon},${p.lat}`).join(";");
+        const url = `${OSRM_URL}${coords}?overview=full&geometries=geojson`;
+        const resp = await fetch(url);
+        if (!resp.ok) throw new Error("HTTP " + resp.status);
+        const json = await resp.json();
+        if (json.code !== "Ok" || !json.routes || !json.routes.length) {
+          throw new Error(json.message || json.code || "sem rota");
+        }
+        const rota = json.routes[0];
+        return {
+          km: rota.distance / 1000,
+          coords: rota.geometry.coordinates.map((c) => [c[1], c[0]]), // [lon,lat] -> [lat,lon]
+        };
+      }
+
+      // Executa tarefas assíncronas uma de cada vez (uso responsável da API pública), com progresso.
+      async function executarFila(tarefas, rotulo) {
+        for (let n = 0; n < tarefas.length; n++) {
+          setProgresso(`${rotulo} ${n + 1} de ${tarefas.length}…`);
+          await tarefas[n]();
+        }
+        setProgresso("");
+      }
+
+      // Carregamento inicial: rota completa de cada sentido + todos os trechos, tudo sequencial.
+      async function calcularTudo() {
+        const tarefas = [];
+        tarefas.push(async () => {
+          await calcularRotaCompleta("ida");
+        });
+        tarefas.push(async () => {
+          await calcularRotaCompleta("volta");
+        });
+        TRECHOS.forEach((t, ti) =>
+          tarefas.push(async () => {
+            await calcularTrecho(ti, false);
+            atualizarTrecho(ti); // desenha rota/marcadores/badge assim que o trecho fica pronto
+          }),
+        );
+        await executarFila(tarefas, "Calculando");
+        atualizarMapaEdicao();
+      }
+
+      // Rota completa de um sentido (todos os pontos), só para exibição no mapa de edição.
+      async function calcularRotaCompleta(sentidoNome) {
+        const sentido = DADOS[sentidoNome];
+        try {
+          sentido.rotaCompleta = (await rotaOSRM(sentido.pontos)).coords;
+        } catch (e) {
+          sentido.rotaCompleta = null;
+        }
+      }
+
+      // Calcula um trecho (Ida e Volta) via OSRM e atualiza seu card.
+      async function calcularTrecho(ti, atualizar = true) {
+        const t = TRECHOS[ti];
+        if (!t.sujo && t.status === "ok") return; // reaproveita resultado limpo
+        try {
+          const ida = await rotaOSRM(pontosDoTrechoIda(t));
+          t.distIda = ida.km;
+          t.coordsIda = ida.coords;
+          const volta = await rotaOSRM(pontosDoTrechoVolta(t));
+          t.distVolta = volta.km;
+          t.coordsVolta = volta.coords;
+          t.distMedia = (t.distIda + t.distVolta) / 2;
+          t.status = "ok";
+          t.erroMsg = "";
+        } catch (e) {
+          t.status = "erro";
+          t.erroMsg = e.message;
+          t.distMedia = null;
+        }
+        t.sujo = false;
+        if (atualizar) {
+          atualizarTrecho(ti);
+          renderResumo();
+        }
+      }
+
+      // Recalcula sequencialmente todos os trechos marcados como sujos (usado após editar um ponto de rota).
+      async function recalcularSujos() {
+        const indices = [];
+        TRECHOS.forEach((t, ti) => {
+          if (t.sujo) indices.push(ti);
+        });
+        const tarefas = indices.map((ti) => async () => {
+          await calcularTrecho(ti, false);
+          atualizarTrecho(ti);
+        });
+        await executarFila(tarefas, "Recalculando trecho");
+        renderResumo();
+      }
+
+      // Marca como sujos todos os trechos cujo intervalo contém o ponto informado no sentido dado.
+      function marcarSujosPorPonto(sentidoNome, ponto) {
+        TRECHOS.forEach((t) => {
+          const lista =
+            sentidoNome === "ida"
+              ? pontosEntre(DADOS.ida, t.i, t.k)
+              : pontosEntre(
+                  DADOS.volta,
+                  secaoVoltaEspelhada(t.k),
+                  secaoVoltaEspelhada(t.i),
+                );
+          if (lista.includes(ponto)) t.sujo = true;
+        });
+      }
+
+      /* ============================================================
+   MAPA DE EDIÇÃO
+   ============================================================ */
+
+      function renderEdicao() {
+        if (!MAPA.edicao) {
+          MAPA.edicao = L.map("mapaEdicao");
+          MAPA.camadasBase = criarCamadasBase(MAPA.edicao);
+          MAPA.edicao._camadas = [];
+          document
+            .getElementById("chkMostrarIda")
+            .addEventListener("change", atualizarMapaEdicao);
+          document
+            .getElementById("chkMostrarVolta")
+            .addEventListener("change", atualizarMapaEdicao);
+          document
+            .getElementById("chkEdParadas")
+            .addEventListener("change", atualizarMapaEdicao);
+          document
+            .getElementById("chkEdRota")
+            .addEventListener("change", atualizarMapaEdicao);
+          document
+            .getElementById("chkEdIndices")
+            .addEventListener("change", atualizarMapaEdicao);
+          document
+            .getElementById("chkEdSat")
+            .addEventListener("change", (ev) =>
+              definirCamadaBase(
+                MAPA.edicao,
+                MAPA.camadasBase,
+                ev.target.checked,
+              ),
+            );
+          document
+            .getElementById("btnRecalcEdicao")
+            .addEventListener("click", recalcularRotasEdicao);
+          document
+            .querySelectorAll('input[name="sentidoEdicao"]')
+            .forEach((r) => r.addEventListener("change", renderTabelaEdicao));
+        }
+        atualizarMapaEdicao();
+        renderTabelaEdicao();
+      }
+
+      // Recalcula sob demanda a rota completa de Ida e Volta (inclui pontos de rota inseridos nos trechos).
+      async function recalcularRotasEdicao() {
+        await executarFila(
+          [
+            async () => {
+              await calcularRotaCompleta("ida");
+            },
+            async () => {
+              await calcularRotaCompleta("volta");
+            },
+          ],
+          "Recalculando rota",
+        );
+        atualizarMapaEdicao();
+      }
+
+      // Desenha rota completa de Ida (sólida) e Volta (tracejada, outra cor) + marcadores arrastáveis.
+      function atualizarMapaEdicao() {
+        const mapa = MAPA.edicao;
+        if (!mapa) return;
+        mapa._camadas.forEach((c) => mapa.removeLayer(c));
+        mapa._camadas = [];
+
+        const mostrarIda = document.getElementById("chkMostrarIda").checked;
+        const mostrarVolta = document.getElementById("chkMostrarVolta").checked;
+        const limites = [];
+
+        if (mostrarIda) {
+          desenharSentidoEdicao("ida", limites);
+        }
+        if (mostrarVolta) {
+          desenharSentidoEdicao("volta", limites);
+        }
+        // Só enquadra na primeira vez; redesenhos posteriores preservam zoom/posição que o usuário deixou.
+        if (limites.length && !MAPA.edicaoEnquadrada) {
+          mapa.fitBounds(limites, { padding: [30, 30] });
+          MAPA.edicaoEnquadrada = true;
+        }
+        setTimeout(() => mapa.invalidateSize(), 0);
+      }
+
+      function desenharSentidoEdicao(sentidoNome, limites) {
+        const mapa = MAPA.edicao;
+        const sentido = DADOS[sentidoNome];
+        const ehIda = sentidoNome === "ida";
+        const sentidoLabel = ehIda ? "Ida" : "Volta";
+        const ordem = ordemPontos(sentido.pontos);
+        if (sentido.rotaCompleta) {
+          const linha = L.polyline(sentido.rotaCompleta, {
+            color: ehIda ? getCss("--cor-ida") : getCss("--cor-volta"),
+            weight: 4,
+            dashArray: ehIda ? null : "8 6",
+            opacity: 0.85,
+          }).addTo(mapa);
+          mapa._camadas.push(linha);
+        }
+        const mostrarParadas = document.getElementById("chkEdParadas").checked;
+        const mostrarRota = document.getElementById("chkEdRota").checked;
+        const comIndice = document.getElementById("chkEdIndices").checked;
+        sentido.pontos.forEach((p) => {
+          if (!isFinite(p.lat) || !isFinite(p.lon)) return;
+          if (!pontoVisivel(p, mostrarParadas, mostrarRota)) return;
+          const numero = ordem.get(p);
+          const marcador = criarMarcador(p, true, numero, comIndice).addTo(
+            mapa,
+          );
+          marcador.bindTooltip(
+            `${numero}. ${escaparHtml(p.cidade)} - ${escaparHtml(p.parada)} • ${textoTipo(p)} • ${sentidoLabel}`,
+            { direction: "top" },
+          );
+          marcador.on("dragend", (e) => {
+            const ll = e.target.getLatLng();
+            p.lat = ll.lat;
+            p.lon = ll.lng;
+            marcarSujosPorPonto(sentidoNome, p);
+            renderTabelaEdicao();
+          });
+          mapa._camadas.push(marcador);
+          limites.push([p.lat, p.lon]);
+        });
+      }
+
+      function renderTabelaEdicao() {
+        const sentidoNome = document.querySelector(
+          'input[name="sentidoEdicao"]:checked',
+        ).value;
+        const sentido = DADOS[sentidoNome];
+        let html = `<table><thead><tr><th>#</th><th>Cidade</th><th>Parada</th><th>Tipo</th><th>Lat</th><th>Lon</th><th>Maps</th></tr></thead><tbody>`;
+        sentido.pontos.forEach((p, idx) => {
+          html += `<tr>
+      <td>${idx + 1}</td>
+      <td>${escaparHtml(p.cidade)}</td>
+      <td>${escaparHtml(p.parada)}</td>
+      <td>${tagTipo(p)}</td>
+      <td><input type="number" step="any" value="${p.lat}" data-sentido="${sentidoNome}" data-idx="${idx}" data-campo="lat"></td>
+      <td><input type="number" step="any" value="${p.lon}" data-sentido="${sentidoNome}" data-idx="${idx}" data-campo="lon"></td>
+      <td><button type="button" class="ver" data-maps="1" data-sentido="${sentidoNome}" data-idx="${idx}" title="Abrir no Google Maps">📍</button></td>
+    </tr>`;
+        });
+        html += `</tbody></table>`;
+        const cont = document.getElementById("tabelaEdicao");
+        cont.innerHTML = html;
+        // onchange (não oninput) para não redesenhar o mapa a cada tecla
+        cont.querySelectorAll("input").forEach((inp) =>
+          inp.addEventListener("change", () => {
+            const s = DADOS[inp.dataset.sentido];
+            const ponto = s.pontos[+inp.dataset.idx];
+            const valor = parseFloat(inp.value);
+            if (!isFinite(valor)) return;
+            ponto[inp.dataset.campo] = valor;
+            marcarSujosPorPonto(inp.dataset.sentido, ponto);
+            atualizarMapaEdicao();
+          }),
+        );
+        cont.querySelectorAll("button[data-maps]").forEach((btn) =>
+          btn.addEventListener("click", () => {
+            abrirNoMaps(DADOS[btn.dataset.sentido].pontos[+btn.dataset.idx]);
+          }),
+        );
+      }
+
+      /* ============================================================
+   MAPAS DE TRECHO
+   ============================================================ */
+
+      // Cria o esqueleto fixo de todos os cards de trecho (uma vez); cada um inicializa seu mapa Leaflet.
+      function renderEsqueletoTrechos() {
+        const cont = document.getElementById("listaTrechos");
+        cont.innerHTML = "";
+        TRECHOS.forEach((t, ti) => {
+          const card = document.createElement("div");
+          card.className = "cartao-trecho";
+          card.innerHTML = `
+      <div class="cabecalho">
+        <h3 style="margin:0;">${escaparHtml(rotuloSecao(t.origem))} → ${escaparHtml(rotuloSecao(t.destino))}</h3>
+        <span class="badge pendente" id="badge_${ti}">…</span>
+        <label><input type="checkbox" id="chkIda_${ti}" checked> Mostrar Ida</label>
+        <label><input type="checkbox" id="chkVolta_${ti}" checked> Mostrar Volta</label>
+        <label><input type="checkbox" id="chkParadas_${ti}" checked> Paradas</label>
+        <label><input type="checkbox" id="chkRota_${ti}" checked> Pontos de rota</label>
+        <label><input type="checkbox" id="chkIndices_${ti}" checked> Índices</label>
+        <label><input type="checkbox" id="chkSat_${ti}"> Satélite</label>
+        <button class="secundario" id="btnRecalc_${ti}" type="button">Recalcular</button>
+      </div>
+      <div class="mapa-tabela">
+        <div class="lado-mapa"><div id="map_${ti}"></div></div>
+        <div class="lado-tabela"><div id="info_${ti}"></div></div>
+      </div>`;
+          cont.appendChild(card);
+
+          const mapa = L.map(`map_${ti}`);
+          t.camadasBase = criarCamadasBase(mapa);
+          // visão inicial centrada nos próprios endpoints, para o mapa não ficar em branco antes do cálculo
+          if (isFinite(t.origem.lat) && isFinite(t.destino.lat)) {
+            mapa.fitBounds(
+              [
+                [t.origem.lat, t.origem.lon],
+                [t.destino.lat, t.destino.lon],
+              ],
+              { padding: [25, 25] },
+            );
+          } else {
+            mapa.setView([-23.5, -46.6], 8);
+          }
+          setTimeout(() => mapa.invalidateSize(), 0);
+          t.mapa = mapa;
+
+          document
+            .getElementById(`btnRecalc_${ti}`)
+            .addEventListener("click", () => calcularTrecho(ti, true));
+          document
+            .getElementById(`chkIda_${ti}`)
+            .addEventListener("change", (ev) => {
+              t.mostrarIda = ev.target.checked;
+              desenharMapaTrecho(ti);
+            });
+          document
+            .getElementById(`chkVolta_${ti}`)
+            .addEventListener("change", (ev) => {
+              t.mostrarVolta = ev.target.checked;
+              desenharMapaTrecho(ti);
+            });
+          document
+            .getElementById(`chkParadas_${ti}`)
+            .addEventListener("change", (ev) => {
+              t.mostrarParadas = ev.target.checked;
+              desenharMapaTrecho(ti);
+            });
+          document
+            .getElementById(`chkRota_${ti}`)
+            .addEventListener("change", (ev) => {
+              t.mostrarRota = ev.target.checked;
+              desenharMapaTrecho(ti);
+            });
+          document
+            .getElementById(`chkIndices_${ti}`)
+            .addEventListener("change", (ev) => {
+              t.mostrarIndices = ev.target.checked;
+              desenharMapaTrecho(ti);
+            });
+          document
+            .getElementById(`chkSat_${ti}`)
+            .addEventListener("change", (ev) =>
+              definirCamadaBase(t.mapa, t.camadasBase, ev.target.checked),
+            );
+        });
+      }
+
+      // Redesenha mapa, tabela e badge de um trecho a partir do estado já calculado (idempotente).
+      function atualizarTrecho(ti) {
+        const t = TRECHOS[ti];
+        desenharMapaTrecho(ti);
+        renderTabelaTrecho(ti);
+        const badge = document.getElementById(`badge_${ti}`);
+        if (t.status === "ok") {
+          badge.className = "badge ok";
+          badge.textContent = `Ida ${formatarKm(t.distIda)} • Volta ${formatarKm(t.distVolta)} • Média ${formatarKm(t.distMedia)} km`;
+        } else if (t.status === "erro") {
+          badge.className = "badge erro";
+          badge.textContent = "Erro ao calcular: " + t.erroMsg;
+        } else {
+          badge.className = "badge pendente";
+          badge.textContent = "Pendente";
+        }
+      }
+
+      function desenharMapaTrecho(ti) {
+        const t = TRECHOS[ti];
+        const mapa = t.mapa;
+        t.camadas.forEach((c) => mapa.removeLayer(c));
+        t.camadas = [];
+        const limites = [];
+        // ordem (1-based) de cada ponto na sequência do trecho — usada na numeração do mapa e no tooltip
+        const ordemIda = ordemPontos(todosPontosTrechoIda(t));
+        const ordemVolta = ordemPontos(todosPontosTrechoVolta(t));
+
+        if (t.mostrarIda) {
+          if (t.coordsIda) {
+            const linha = L.polyline(t.coordsIda, {
+              color: getCss("--cor-ida"),
+              weight: 4,
+              opacity: 0.85,
+            }).addTo(mapa);
+            linha.on("click", (e) => criarPontoRota("ida", ti, e.latlng));
+            t.camadas.push(linha);
+          }
+          desenharMarcadoresTrecho(
+            ti,
+            "ida",
+            pontosDoTrechoIda(t),
+            limites,
+            ordemIda,
+            "Ida",
+          );
+        }
+        if (t.mostrarVolta) {
+          if (t.coordsVolta) {
+            const linha = L.polyline(t.coordsVolta, {
+              color: getCss("--cor-volta"),
+              weight: 4,
+              dashArray: "8 6",
+              opacity: 0.85,
+            }).addTo(mapa);
+            linha.on("click", (e) => criarPontoRota("volta", ti, e.latlng));
+            t.camadas.push(linha);
+          }
+          desenharMarcadoresTrecho(
+            ti,
+            "volta",
+            pontosDoTrechoVolta(t),
+            limites,
+            ordemVolta,
+            "Volta",
+          );
+        }
+
+        // Enquadra só no primeiro desenho da rota; depois mantém a vista atual para não "espaunar"
+        // quando o usuário cria/move um ponto (ele continua olhando o local que estava editando).
+        if (limites.length && !t.vistaInicial) {
+          mapa.fitBounds(limites, { padding: [25, 25] });
+          t.vistaInicial = true;
+        }
+        setTimeout(() => mapa.invalidateSize(), 0);
+      }
+
+      // Mapeia cada ponto à sua ordem (1-based) na sequência, para numerar e rotular de forma consistente.
+      function ordemPontos(pontos) {
+        const m = new Map();
+        pontos.forEach((p, n) => m.set(p, n + 1));
+        return m;
+      }
+
+      function desenharMarcadoresTrecho(
+        ti,
+        sentidoNome,
+        pontos,
+        limites,
+        ordem,
+        sentidoLabel,
+      ) {
+        const t = TRECHOS[ti];
+        pontos.forEach((p) => {
+          if (!isFinite(p.lat) || !isFinite(p.lon)) return;
+          if (!pontoVisivel(p, t.mostrarParadas, t.mostrarRota)) return;
+          const numero = ordem.get(p);
+          const marcador = criarMarcador(
+            p,
+            true,
+            numero,
+            t.mostrarIndices,
+          ).addTo(t.mapa);
+          marcador.bindTooltip(
+            `${numero}. ${escaparHtml(p.cidade)} - ${escaparHtml(p.parada)} • ${textoTipo(p)} • ${sentidoLabel}`,
+            { direction: "top" },
+          );
+          marcador.on("dragend", async (e) => {
+            const ll = e.target.getLatLng();
+            p.lat = ll.lat;
+            p.lon = ll.lng;
+            marcarSujosPorPonto(sentidoNome, p);
+            await recalcularSujos();
+          });
+          if (p.ehRota) {
+            marcador.on("contextmenu", async () => {
+              if (confirm("Excluir este ponto de rota?")) {
+                marcarSujosPorPonto(sentidoNome, p);
+                removerPontoRota(sentidoNome, p);
+                await recalcularSujos();
+              }
+            });
+          }
+          t.camadas.push(marcador);
+          limites.push([p.lat, p.lon]);
+        });
+      }
+
+      // Duas tabelas empilhadas: Ida em cima, Volta embaixo (cada uma com sua própria numeração).
+      function renderTabelaTrecho(ti) {
+        const t = TRECHOS[ti];
+        const loV = secaoVoltaEspelhada(t.k),
+          hiV = secaoVoltaEspelhada(t.i);
+        let html = tabelaSentidoTrecho(
+          ti,
+          "ida",
+          todosPontosTrechoIda(t),
+          t.origem,
+          t.destino,
+          "Ida",
+          getCss("--cor-ida"),
+          false,
+        );
+        html += tabelaSentidoTrecho(
+          ti,
+          "volta",
+          todosPontosTrechoVolta(t),
+          DADOS.volta.secoes[loV],
+          DADOS.volta.secoes[hiV],
+          "Volta",
+          getCss("--cor-volta"),
+          true,
+        );
+        const cont = document.getElementById(`info_${ti}`);
+        cont.innerHTML = html;
+        cont.querySelectorAll('input[type="checkbox"]').forEach((chk) =>
+          chk.addEventListener("change", async () => {
+            const sentidoNome = chk.dataset.sentido;
+            const ponto = DADOS[sentidoNome].pontos[+chk.dataset.idx];
+            const conjunto = t.pontosExcluidos[sentidoNome];
+            if (chk.checked) conjunto.delete(ponto);
+            else conjunto.add(ponto);
+            t.sujo = true;
+            await calcularTrecho(ti, true);
+          }),
+        );
+        cont.querySelectorAll("button[data-ver]").forEach((btn) =>
+          btn.addEventListener("click", () => {
+            const ponto = DADOS[btn.dataset.sentido].pontos[+btn.dataset.idx];
+            focarPonto(t.mapa, ponto);
+          }),
+        );
+        cont.querySelectorAll("button[data-maps]").forEach((btn) =>
+          btn.addEventListener("click", () => {
+            abrirNoMaps(DADOS[btn.dataset.sentido].pontos[+btn.dataset.idx]);
+          }),
+        );
+      }
+
+      // Abre o ponto no Google Maps em outra aba, usando lat/lon atuais.
+      function abrirNoMaps(ponto) {
+        if (!isFinite(ponto.lat) || !isFinite(ponto.lon)) return;
+        window.open(
+          `https://www.google.com/maps/place/${ponto.lat},${ponto.lon}`,
+          "_blank",
+          "noopener",
+        );
+      }
+
+      // Dá zoom no ponto e pisca um destaque ao redor, para o usuário localizá-lo no mapa.
+      function focarPonto(mapa, ponto) {
+        if (!isFinite(ponto.lat) || !isFinite(ponto.lon)) return;
+        mapa.setView([ponto.lat, ponto.lon], 17, { animate: true });
+        const destaque = L.circleMarker([ponto.lat, ponto.lon], {
+          radius: 16,
+          color: "#ff9800",
+          weight: 3,
+          fill: false,
+        }).addTo(mapa);
+        setTimeout(() => mapa.removeLayer(destaque), 2500);
+      }
+
+      function tabelaSentidoTrecho(
+        ti,
+        sentidoNome,
+        pontos,
+        origem,
+        destino,
+        titulo,
+        cor,
+        tracejado,
+      ) {
+        const t = TRECHOS[ti];
+        const amostra = `<span class="amostra" style="border-top-color:${cor};border-top-style:${tracejado ? "dashed" : "solid"}"></span>`;
+        let html = `<h4 class="titulo-sentido">${amostra}${titulo}</h4>`;
+        html += `<table><thead><tr><th>#</th><th>Inc.</th><th>Cidade</th><th>Parada</th><th>Tipo</th><th>Ver</th><th>Maps</th></tr></thead><tbody>`;
+        html += pontos
+          .map((p, n) => {
+            const obrigatorio = p === origem || p === destino;
+            const incluido =
+              obrigatorio || !t.pontosExcluidos[sentidoNome].has(p);
+            const idx = DADOS[sentidoNome].pontos.indexOf(p);
+            return `<tr>
+      <td>${n + 1}</td>
+      <td><input type="checkbox" data-sentido="${sentidoNome}" data-idx="${idx}"
+                 ${incluido ? "checked" : ""} ${obrigatorio ? "disabled" : ""}></td>
+      <td>${escaparHtml(p.cidade)}</td>
+      <td>${escaparHtml(p.parada)}</td>
+      <td>${tagTipo(p)}</td>
+      <td><button type="button" class="ver" data-ver="1" data-sentido="${sentidoNome}" data-idx="${idx}" title="Centralizar no mapa">🔍</button></td>
+      <td><button type="button" class="ver" data-maps="1" data-sentido="${sentidoNome}" data-idx="${idx}" title="Abrir no Google Maps">📍</button></td>
+    </tr>`;
+          })
+          .join("");
+        html += `</tbody></table>`;
+        return html;
+      }
+
+      // Cria um ponto de rota sobre a polyline clicada e o insere na sequência global do sentido.
+      async function criarPontoRota(sentidoNome, ti, latlng) {
+        const sentido = DADOS[sentidoNome];
+        const pos = posicaoInsercao(sentido, latlng);
+        const ponto = {
+          cidade: "Ponto de rota",
+          parada: "",
+          lat: latlng.lat,
+          lon: latlng.lng,
+          secao: false,
+          tipoSecao: null,
+          ehRota: true,
+        };
+        sentido.pontos.splice(pos, 0, ponto);
+        // Propaga automaticamente: qualquer trecho cujo intervalo contém esta posição passa a considerá-lo.
+        marcarSujosPorPonto(sentidoNome, ponto);
+        await calcularTrecho(ti, true); // o card clicado recalcula de imediato
+        await recalcularSujos(); // os demais trechos afetados recalculam em seguida
+      }
+
+      // Posição de inserção na sequência: entre o par de pontos consecutivos cujo segmento está mais perto do clique.
+      function posicaoInsercao(sentido, latlng) {
+        const pts = sentido.pontos;
+        let melhor = 1,
+          menor = Infinity;
+        for (let n = 0; n < pts.length - 1; n++) {
+          const d = distanciaPontoSegmento(
+            latlng.lat,
+            latlng.lng,
+            pts[n].lat,
+            pts[n].lon,
+            pts[n + 1].lat,
+            pts[n + 1].lon,
+          );
+          if (d < menor) {
+            menor = d;
+            melhor = n + 1;
+          }
+        }
+        return melhor;
+      }
+
+      function removerPontoRota(sentidoNome, ponto) {
+        const pts = DADOS[sentidoNome].pontos;
+        const i = pts.indexOf(ponto);
+        if (i >= 0) pts.splice(i, 1);
+        // tira o ponto de qualquer opt-out registrado
+        TRECHOS.forEach((t) => t.pontosExcluidos[sentidoNome].delete(ponto));
+      }
+
+      /* ============================================================
+   RESUMO (MATRIZES)
+   ============================================================ */
+
+      // Renderiza as três matrizes do resumo: distâncias originais, tarifas originais e médias recalculadas.
+      function renderResumo() {
+        const porPar = {};
+        TRECHOS.forEach((t) => {
+          porPar[`${t.i}-${t.k}`] = t;
+        });
+
+        document.getElementById("matrizMedia").innerHTML = matrizTriangular(
+          (i, k) => {
+            const t = porPar[`${i}-${k}`];
+            const idx = idxDistanciaOriginal(i, k);
+            const tarifa = (RAW.Ida.Tarifas || [])[idx] || "—";
+            const distOrig = (RAW.Ida.Distancias || [])[idx] || "—";
+            return {
+              texto: t && t.distMedia != null ? formatarKm(t.distMedia) : "?",
+              titulo: `Tarifa original: ${tarifa} • Distância original: ${distOrig}`,
+            };
+          },
+        );
+
+        // Tarifa considerando distância média: mesmo valor da média, vazio onde não há venda;
+        // verde quando o calculado é menor que o proposto (Tarifas original), vermelho quando maior.
+        document.getElementById("matrizTarifaMedia").innerHTML =
+          matrizTriangular((i, k) => {
+            const t = porPar[`${i}-${k}`];
+            const idx = idxDistanciaOriginal(i, k);
+            const tarifaOriginal = (RAW.Ida.Tarifas || [])[idx];
+            const semVenda =
+              !tarifaOriginal || String(tarifaOriginal).trim() === "";
+            if (semVenda) return { texto: "—", classe: "sem-venda" };
+            if (!t || t.distMedia == null) return { texto: "?" };
+            const proposto = paraNumero(tarifaOriginal);
+            let classe = "";
+            if (isFinite(proposto))
+              classe =
+                t.distMedia < proposto
+                  ? "menor"
+                  : t.distMedia > proposto
+                    ? "maior"
+                    : "";
+            return {
+              texto: formatarKm(t.distMedia),
+              classe,
+              titulo: `Proposto: ${tarifaOriginal}`,
+            };
+          });
+      }
+
+      // Monta uma matriz triangular inferior com as seções na ordem da Ida como rótulos de linha/coluna.
+      // valorCelula(i, k) -> { texto, classe?, titulo? } para o par (i<k); diagonal = X, acima da diagonal vazio.
+      function matrizTriangular(valorCelula) {
+        const secoes = DADOS.ida.secoes;
+        const n = secoes.length;
+        let html = `<table class="matriz"><thead><tr><th></th>`;
+        for (let c = 0; c < n; c++)
+          html += `<th>${escaparHtml(rotuloSecao(secoes[c]))}</th>`;
+        html += `</tr></thead><tbody>`;
+        for (let r = 0; r < n; r++) {
+          html += `<tr><th>${escaparHtml(rotuloSecao(secoes[r]))}</th>`;
+          for (let c = 0; c < n; c++) {
+            if (c === r) {
+              html += `<td class="diag">X</td>`;
+              continue;
+            }
+            if (c > r) {
+              html += `<td class="vazio"></td>`;
+              continue;
+            }
+            const cel = valorCelula(c, r); // par (i<k) = (c, r) com c < r
+            const cls = cel.classe ? ` class="${cel.classe}"` : "";
+            const tit = cel.titulo ? ` title="${escaparHtml(cel.titulo)}"` : "";
+            html += `<td${cls}${tit}>${cel.texto}</td>`;
+          }
+          html += `</tr>`;
+        }
+        html += `</tbody></table>`;
+        return html;
+      }
+
+      /* ============================================================
+   EXPORTAÇÃO
+   ============================================================ */
+      document
+        .getElementById("btnExportarSem")
+        .addEventListener("click", () => exportar(false));
+      document
+        .getElementById("btnExportarCom")
+        .addEventListener("click", () => exportar(true));
+      document
+        .getElementById("btnResetExport")
+        .addEventListener("click", () => {
+          inicializarValoresExport();
+          renderTabelasExport();
+        });
+
+      // recalcular=false: mantém Distancias/Tarifas originais. true: grava os valores editáveis das tabelas.
+      function exportar(recalcular) {
+        const cod = codigoLinha(); // ex.: "607A" (Autos + LetraItinerario do Info)
+        const carimbo = carimboData(); // dd-mm-aaaa-hh-mm-ss
+        baixarArquivo(
+          `${cod} - recalculado - ${carimbo}.txt`,
+          gerarArquivoRecalculado(recalcular),
+        );
+        baixarArquivo(
+          `COMP-${cod} - recalculado - ${carimbo}.txt`,
+          gerarArquivoApoio(),
+        );
+      }
+
+      // Código da linha a partir do arquivo: Autos + LetraItinerario (ex.: "607" + "A" = "607A").
+      function codigoLinha() {
+        const info = RAW.Info || {};
+        const cod = `${info.Autos || ""}${info.LetraItinerario || ""}`.trim();
+        return cod || NOME_BASE; // fallback ao nome do arquivo se Info não trouxer o código
+      }
+
+      function carimboData() {
+        const d = new Date();
+        const z = (n) => String(n).padStart(2, "0");
+        return `${z(d.getDate())}-${z(d.getMonth() + 1)}-${d.getFullYear()}-${z(d.getHours())}-${z(d.getMinutes())}-${z(d.getSeconds())}`;
+      }
+
+      // Arquivo 1: clone integral do RAW, atualizando lat/lon dos pontos originais (sem pontos de rota).
+      // recalcular=true também grava Distancias/Tarifas com os valores das tabelas editáveis.
+      function gerarArquivoRecalculado(recalcular) {
+        const clone = JSON.parse(JSON.stringify(RAW));
+        aplicarCoordenadas(clone.Ida, DADOS.ida);
+        aplicarCoordenadas(clone.Volta, DADOS.volta);
+        if (recalcular) aplicarDistanciasTarifas(clone);
+        return JSON.stringify(clone);
+      }
+
+      // Grava nos arrays Distancias/Tarifas os valores editáveis (VALORES_EXPORT). Pares sem venda têm
+      // tarifa nula e não são gravados (mantêm a tarifa original vazia). Valor vazio não sobrescreve.
+      function aplicarDistanciasTarifas(clone) {
+        TRECHOS.forEach((t) => {
+          const reg = VALORES_EXPORT[`${t.i}-${t.k}`];
+          if (!reg) return;
+          const idx = idxDistanciaOriginal(t.i, t.k);
+          if (reg.dist !== "" && clone.Ida.Distancias)
+            clone.Ida.Distancias[idx] = reg.dist;
+          if (reg.tarifa != null && reg.tarifa !== "" && clone.Ida.Tarifas)
+            clone.Ida.Tarifas[idx] = reg.tarifa;
+        });
+      }
+
+      // Semeia os valores editáveis a partir do resumo: dist = distância média; tarifa = mesma onde há
+      // venda, nula onde o arquivo original não permite venda de passagem.
+      function inicializarValoresExport() {
+        VALORES_EXPORT = {};
+        TRECHOS.forEach((t) => {
+          const idx = idxDistanciaOriginal(t.i, t.k);
+          const tarifaOriginal = (RAW.Ida.Tarifas || [])[idx];
+          const temVenda =
+            tarifaOriginal != null && String(tarifaOriginal).trim() !== "";
+          const dist = t.distMedia != null ? formatarKm(t.distMedia) : "";
+          VALORES_EXPORT[`${t.i}-${t.k}`] = {
+            dist,
+            tarifa: temVenda ? dist : null,
+          };
+        });
+      }
+
+      // Matrizes editáveis (distâncias e tarifas) reaproveitando o gerador matrizTriangular.
+      function renderTabelasExport() {
+        document.getElementById("matrizDistExport").innerHTML =
+          matrizTriangular((i, k) => {
+            const reg = VALORES_EXPORT[`${i}-${k}`];
+            return {
+              texto: inputCelulaExport(i, k, "dist", reg ? reg.dist : ""),
+            };
+          });
+        document.getElementById("matrizTarifaExport").innerHTML =
+          matrizTriangular((i, k) => {
+            const reg = VALORES_EXPORT[`${i}-${k}`];
+            if (!reg || reg.tarifa == null)
+              return { texto: "—", classe: "sem-venda" }; // sem venda: não editável
+            return { texto: inputCelulaExport(i, k, "tarifa", reg.tarifa) };
+          });
+        document
+          .querySelectorAll(
+            "#matrizDistExport input, #matrizTarifaExport input",
+          )
+          .forEach((inp) =>
+            inp.addEventListener("change", () => {
+              const reg = VALORES_EXPORT[inp.dataset.par];
+              if (reg) reg[inp.dataset.campo] = inp.value.trim();
+            }),
+          );
+      }
+
+      function inputCelulaExport(i, k, campo, valor) {
+        return `<input class="cel-export" data-par="${i}-${k}" data-campo="${campo}" value="${escaparHtml(valor)}">`;
+      }
+
+      function aplicarCoordenadas(destino, sentido) {
+        if (!destino || !destino.Partidas) return;
+        sentido.pontos.forEach((p) => {
+          if (p.ehRota || p.indiceOriginal == null) return; // pontos de rota não entram no esquema oficial
+          const alvo = destino.Partidas[p.indiceOriginal];
+          if (!alvo) return;
+          alvo.Latitude = formatarCoord(p.lat);
+          alvo.Longitude = formatarCoord(p.lon);
+        });
+      }
+
+      // Arquivo 2: pontos de rota (por vizinhos) + pontos excluídos por trecho.
+      function gerarArquivoApoio() {
+        const pontosDeRota = [];
+        ["ida", "volta"].forEach((sentidoNome) => {
+          DADOS[sentidoNome].pontos.forEach((p, idx) => {
+            if (!p.ehRota) return;
+            pontosDeRota.push({
+              sentido: sentidoNome,
+              lat: p.lat,
+              lon: p.lon,
+              anterior: refVizinho(DADOS[sentidoNome].pontos, idx, -1),
+              seguinte: refVizinho(DADOS[sentidoNome].pontos, idx, +1),
+            });
+          });
+        });
+
+        const selecaoTrechos = TRECHOS.map((t) => ({
+          trecho: { origem: refPonto(t.origem), destino: refPonto(t.destino) },
+          pontosExcluidosIda: [...t.pontosExcluidos.ida].map(refExcluido),
+          pontosExcluidosVolta: [...t.pontosExcluidos.volta].map(refExcluido),
+        }));
+
+        return JSON.stringify(
+          {
+            arquivoOrigem: NOME_BASE + ".txt",
+            pontosDeRota,
+            selecaoTrechos,
+          },
+          null,
+          2,
+        );
+      }
+
+      // Vizinho original mais próximo numa direção (pula outros pontos de rota), para reinserção estável.
+      function refVizinho(pontos, idx, passo) {
+        for (let n = idx + passo; n >= 0 && n < pontos.length; n += passo) {
+          if (!pontos[n].ehRota) return refPonto(pontos[n]);
+        }
+        return null;
+      }
+      function refPonto(p) {
+        return { cidade: p.cidade, parada: p.parada };
+      }
+      function refExcluido(p) {
+        return p.ehRota ? { rota: true, lat: p.lat, lon: p.lon } : refPonto(p);
+      }
+
+      /* ============================================================
+   APLICAR ARQUIVO DE APOIO (REIMPORTAÇÃO)
+   ============================================================ */
+
+      // Restaura pontos de rota e seleções por trecho a partir do arquivo de apoio.
+      function aplicarApoio(apoio) {
+        (apoio.pontosDeRota || []).forEach((rp) => {
+          const sentido = DADOS[rp.sentido];
+          if (!sentido) return;
+          const pos = posicaoEntreVizinhos(sentido, rp.anterior, rp.seguinte);
+          sentido.pontos.splice(pos, 0, {
+            cidade: "Ponto de rota",
+            parada: "",
+            lat: rp.lat,
+            lon: rp.lon,
+            secao: false,
+            tipoSecao: null,
+            ehRota: true,
+          });
+        });
+
+        // A seleção depende de TRECHOS, montados depois; guarda para aplicar em seguida.
+        APOIO_PENDENTE = apoio;
+      }
+
+      // Após montarTrechos(), reaplica as exclusões guardadas no apoio.
+      function aplicarSelecaoApoio() {
+        if (!APOIO_PENDENTE || !APOIO_PENDENTE.selecaoTrechos) return;
+        APOIO_PENDENTE.selecaoTrechos.forEach((sel) => {
+          const t = TRECHOS.find(
+            (tr) =>
+              mesmaRef(tr.origem, sel.trecho.origem) &&
+              mesmaRef(tr.destino, sel.trecho.destino),
+          );
+          if (!t) return;
+          (sel.pontosExcluidosIda || []).forEach((ref) => {
+            const p = acharPonto(DADOS.ida, ref);
+            if (p) t.pontosExcluidos.ida.add(p);
+          });
+          (sel.pontosExcluidosVolta || []).forEach((ref) => {
+            const p = acharPonto(DADOS.volta, ref);
+            if (p) t.pontosExcluidos.volta.add(p);
+          });
+        });
+      }
+
+      // Ancorar no "seguinte" (inserir imediatamente antes dele) preserva a ordem quando vários pontos de
+      // rota caem na mesma lacuna: processados em sequência, cada um entra depois dos já inseridos.
+      function posicaoEntreVizinhos(sentido, anterior, seguinte) {
+        const pts = sentido.pontos;
+        if (seguinte) {
+          const i = pts.findIndex((p) => mesmaRef(p, seguinte));
+          if (i >= 0) return i;
+        }
+        if (anterior) {
+          let i = pts.findIndex((p) => mesmaRef(p, anterior));
+          if (i >= 0) {
+            i++;
+            while (i < pts.length && pts[i].ehRota) i++; // pula pontos de rota já inseridos nesta lacuna
+            return i;
+          }
+        }
+        return pts.length;
+      }
+
+      function acharPonto(sentido, ref) {
+        if (ref && ref.rota) {
+          // ponto de rota: casa por proximidade de coordenada
+          return sentido.pontos.find(
+            (p) =>
+              p.ehRota &&
+              Math.abs(p.lat - ref.lat) < 1e-6 &&
+              Math.abs(p.lon - ref.lon) < 1e-6,
+          );
+        }
+        return sentido.pontos.find((p) => mesmaRef(p, ref));
+      }
+
+      function mesmaRef(p, ref) {
+        return ref && p.cidade === ref.cidade && p.parada === ref.parada;
+      }
+
+      /* ============================================================
+   UTILITÁRIOS
+   ============================================================ */
+
+      // Tiles base. Satélite é híbrido (imagem Esri + rótulos de ruas/locais por cima).
+      const URL_TILE_RUAS =
+        "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
+      const ARCGIS = "https://server.arcgisonline.com/ArcGIS/rest/services/";
+      const URL_TILE_SATELITE =
+        ARCGIS + "World_Imagery/MapServer/tile/{z}/{y}/{x}";
+      const URL_TILE_RUAS_ROTULOS =
+        ARCGIS + "Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}";
+      const URL_TILE_LOCAIS_ROTULOS =
+        ARCGIS +
+        "Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}";
+
+      // Cria as camadas-base de um mapa, adiciona "ruas" (estado inicial) e devolve { ruas, satelite }.
+      // Os rótulos do híbrido são tiles (tilePane), que o Leaflet renderiza abaixo de polylines/marcadores
+      // (overlayPane/markerPane) — aparecem sobre a imagem, mas nunca cobrem rotas nem pontos.
+      function criarCamadasBase(mapa) {
+        const ruas = L.tileLayer(URL_TILE_RUAS, {
+          maxZoom: 19,
+          attribution: "© OpenStreetMap",
+        });
+        const satelite = L.layerGroup([
+          L.tileLayer(URL_TILE_SATELITE, {
+            maxZoom: 19,
+            attribution: "Tiles © Esri",
+          }),
+          L.tileLayer(URL_TILE_RUAS_ROTULOS, { maxZoom: 19 }),
+          L.tileLayer(URL_TILE_LOCAIS_ROTULOS, { maxZoom: 19 }),
+        ]);
+        ruas.addTo(mapa);
+        return { ruas, satelite };
+      }
+
+      // Alterna a camada-base entre ruas e satélite híbrido (vale para tileLayer e layerGroup).
+      function definirCamadaBase(mapa, camadas, usarSatelite) {
+        mapa.removeLayer(usarSatelite ? camadas.ruas : camadas.satelite);
+        mapa.addLayer(usarSatelite ? camadas.satelite : camadas.ruas);
+      }
+
+      function criarMarcador(ponto, arrastavel, numero, comIndice) {
+        const tipo = ponto.ehRota ? "rota" : ponto.secao ? "secao" : "parada";
+        const numerar = comIndice && numero != null; // exibe o índice quando o mapa está com índices ligados
+        const html = numerar
+          ? `<div class="marcador ${tipo} num">${numero}</div>`
+          : `<div class="marcador ${tipo}"></div>`;
+        const tam = numerar ? 20 : 14;
+        const icone = L.divIcon({
+          className: "",
+          html,
+          iconSize: [tam, tam],
+          iconAnchor: [tam / 2, tam / 2],
+        });
+        return L.marker([ponto.lat, ponto.lon], {
+          icon: icone,
+          draggable: !!arrastavel,
+        });
+      }
+
+      function tagTipo(p) {
+        if (p.ehRota) return `<span class="tag rota">Rota</span>`;
+        return p.secao
+          ? `<span class="tag secao">Seção</span>`
+          : `<span class="tag parada">Parada</span>`;
+      }
+
+      function textoTipo(p) {
+        return p.ehRota ? "Ponto de rota" : p.secao ? "Seção" : "Parada";
+      }
+
+      // Visibilidade de um ponto conforme os filtros de tipo; seções ficam sempre visíveis.
+      function pontoVisivel(p, mostrarParadas, mostrarRota) {
+        if (p.ehRota) return mostrarRota;
+        if (p.secao) return true;
+        return mostrarParadas;
+      }
+
+      function rotuloSecao(p) {
+        return p ? `${p.cidade} - ${p.parada}` : "?";
+      }
+
+      function formatarKm(n) {
+        return n == null ? "?" : n.toFixed(2).replace(".", ",");
+      }
+      // Converte string com vírgula decimal (ex.: "1.234,56" ou "117,00") em número.
+      function paraNumero(v) {
+        if (v == null) return NaN;
+        const s = String(v).trim();
+        return s === ""
+          ? NaN
+          : parseFloat(s.replace(/\./g, "").replace(",", "."));
+      }
+      function formatarCoord(n) {
+        return n.toFixed(6);
+      } // mantém ponto decimal, como o arquivo original
+
+      function escaparHtml(s) {
+        return String(s == null ? "" : s)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&#39;");
+      }
+
+      function getCss(varName) {
+        return getComputedStyle(document.documentElement)
+          .getPropertyValue(varName)
+          .trim();
+      }
+
+      // Distância (planar aproximada) de um ponto a um segmento, para detectar o segmento clicado.
+      function distanciaPontoSegmento(px, py, ax, ay, bx, by) {
+        const dx = bx - ax,
+          dy = by - ay;
+        const comp = dx * dx + dy * dy;
+        let t = comp ? ((px - ax) * dx + (py - ay) * dy) / comp : 0;
+        t = Math.max(0, Math.min(1, t));
+        const cx = ax + t * dx,
+          cy = ay + t * dy;
+        return Math.hypot(px - cx, py - cy);
+      }
+
+      function setProgresso(txt) {
+        document.getElementById("progresso").textContent = txt;
+      }
+      function mostrarErro(txt) {
+        document.getElementById("areaErro").textContent = txt;
+      }
+      function limparErro() {
+        document.getElementById("areaErro").textContent = "";
+      }
+
+      function revelarEtapas() {
+        ["secEdicao", "secTrechos", "secResumo", "secExportar"].forEach((id) =>
+          document.getElementById(id).classList.remove("oculto"),
+        );
+      }
+
+      function baixarArquivo(nome, conteudo) {
+        const blob = new Blob([conteudo], { type: "text/plain;charset=utf-8" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = nome;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+      }
+    </script>
+  </body>
+</html>
