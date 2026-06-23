@@ -1,0 +1,1440 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Relatório comparativo de tabelas (vigente × proposta)</title>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        font-family:
+          system-ui,
+          -apple-system,
+          "Segoe UI",
+          Roboto,
+          sans-serif;
+        margin: 0;
+        padding: 16px;
+        background: #f4f5f7;
+        color: #1a1a1a;
+        line-height: 1.4;
+      }
+      h1 {
+        font-size: 20px;
+        margin: 0 0 4px;
+      }
+      h2 {
+        font-size: 16px;
+        margin: 0 0 12px;
+      }
+      h3 {
+        font-size: 14px;
+        margin: 14px 0 8px;
+      }
+      h4 {
+        font-size: 13px;
+        margin: 10px 0 4px;
+      }
+      section.cartao {
+        background: #fff;
+        border: 1px solid #e0e0e0;
+        border-radius: 8px;
+        padding: 16px;
+        margin-bottom: 16px;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+      }
+      .oculto {
+        display: none !important;
+      }
+      .linha {
+        display: flex;
+        gap: 16px;
+        flex-wrap: wrap;
+        align-items: center;
+      }
+      .coluna {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+      button {
+        background: #1d4ed8;
+        color: #fff;
+        border: 0;
+        border-radius: 6px;
+        padding: 8px 14px;
+        font-size: 14px;
+        cursor: pointer;
+      }
+      button:hover {
+        background: #1741b0;
+      }
+      button:disabled {
+        opacity: 0.6;
+        cursor: default;
+      }
+      input[type="file"] {
+        font-size: 13px;
+      }
+      label {
+        font-size: 13px;
+      }
+
+      table {
+        border-collapse: collapse;
+        width: 100%;
+        font-size: 12.5px;
+        margin-bottom: 8px;
+      }
+      th,
+      td {
+        border: 1px solid #e2e2e2;
+        padding: 4px 6px;
+        text-align: left;
+      }
+      th {
+        background: #f0f2f5;
+      }
+      td.num,
+      th.num {
+        text-align: right;
+        white-space: nowrap;
+      }
+      td.cen,
+      th.cen {
+        text-align: center;
+      }
+
+      .badge {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 6px;
+        font-size: 12px;
+        font-weight: 600;
+      }
+      .badge.ok {
+        background: #d1fae5;
+        color: #065f46;
+      }
+      .badge.pendente {
+        background: #fef3c7;
+        color: #92400e;
+      }
+      .badge.erro {
+        background: #fee2e2;
+        color: #991b1b;
+      }
+      .badge.info {
+        background: #dbeafe;
+        color: #1e40af;
+      }
+      .pos {
+        color: #065f46;
+        font-weight: 600;
+      } /* aumento de oferta */
+      .neg {
+        color: #991b1b;
+        font-weight: 600;
+      } /* redução de oferta */
+      td.mantida {
+        background: #eef2ff;
+      }
+      td.adicionada {
+        background: #d1fae5;
+      }
+      td.removida {
+        background: #fee2e2;
+      }
+      tr.tab-vig td {
+        background: #f8fafc;
+      }
+      tr.total th,
+      tr.total td {
+        font-weight: 700;
+        background: #eef2ff;
+      }
+
+      /* Rótulo de padrão com tooltip das cidades */
+      .padrao {
+        cursor: help;
+        border-bottom: 1px dotted #888;
+        font-weight: 600;
+        white-space: nowrap;
+      }
+      .legenda-secoes {
+        font-size: 12px;
+        color: #444;
+        margin: 4px 0 12px;
+      }
+      .legenda-secoes b {
+        color: #1a1a1a;
+      }
+
+      .aviso {
+        background: #fef3c7;
+        border: 1px solid #f59e0b;
+        color: #92400e;
+        border-radius: 6px;
+        padding: 8px 12px;
+        font-size: 13px;
+        margin-bottom: 10px;
+      }
+      .dica {
+        font-size: 12px;
+        color: #666;
+        margin: 4px 0 8px;
+      }
+      #areaErro {
+        color: #991b1b;
+        font-size: 13px;
+      }
+      #progressoPdf {
+        font-size: 13px;
+        color: #555;
+      }
+      .duas-colunas {
+        display: flex;
+        gap: 16px;
+        flex-wrap: wrap;
+      }
+      .duas-colunas > div {
+        flex: 1 1 360px;
+        min-width: 320px;
+      }
+
+      @media print {
+        body {
+          background: #fff;
+          padding: 0;
+        }
+        button,
+        #secCarregar,
+        .dica {
+          display: none !important;
+        }
+        section.cartao {
+          border: none;
+          box-shadow: none;
+          break-inside: avoid;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Relatório comparativo de tabelas (vigente × proposta)</h1>
+    <p class="dica">
+      Carregue a tabela vigente e a proposta (arquivos .txt com JSON da mesma
+      linha). O relatório compara seções, trechos com venda de passagem,
+      distâncias/tarifas e a capacidade de oferta de viagens e de opções de
+      viagem (geral e por faixa horária).
+    </p>
+
+    <section id="secCarregar" class="cartao">
+      <h2>1. Carregar arquivos</h2>
+      <div class="linha">
+        <div class="coluna">
+          <label for="arqVigente"><strong>Tabela vigente</strong></label>
+          <input type="file" id="arqVigente" accept=".txt,.json" />
+        </div>
+        <div class="coluna">
+          <label for="arqProposta"><strong>Tabela proposta</strong></label>
+          <input type="file" id="arqProposta" accept=".txt,.json" />
+        </div>
+        <button id="btnComparar">Comparar</button>
+      </div>
+      <p id="areaErro"></p>
+    </section>
+
+    <section id="secIdentificacao" class="cartao oculto">
+      <h2>2. Identificação da linha</h2>
+      <div id="avisosIdentificacao"></div>
+      <div id="tabelaIdentificacao"></div>
+    </section>
+
+    <section id="secSecoes" class="cartao oculto">
+      <h2>3. Comparativo de seções</h2>
+      <div id="resumoSecoes"></div>
+      <div id="tabelaSecoes"></div>
+    </section>
+
+    <section id="secTrechos" class="cartao oculto">
+      <h2>4. Trechos ofertados, distâncias e tarifas</h2>
+      <div id="resumoTrechos"></div>
+      <div id="tabelaTrechos"></div>
+    </section>
+
+    <section id="secViagens" class="cartao oculto">
+      <h2>5. Viagens ofertadas</h2>
+      <p class="dica">
+        Cada coluna de horários é uma viagem. A métrica é
+        <strong>viagens/semana</strong> = média anual ponderada (dias da semana ×
+        meses de operação / 12); viagens só de feriado contam 0. Cada
+        <strong>padrão de trajeto</strong> (sequência de seções servidas) é uma
+        viagem distinta. Ida e Volta são contadas separadamente.
+      </p>
+      <div id="legendaSecoes" class="legenda-secoes"></div>
+      <div id="tabelaViagens"></div>
+    </section>
+
+    <section id="secOpcoes" class="cartao oculto">
+      <h2>6. Opções de viagem (capacidade de oferta por trecho)</h2>
+      <p class="dica">
+        Para cada trecho com venda de passagem, conta-se quantas viagens o
+        atendem (têm horário nas duas pontas), em viagens/semana (média anual).
+        A venda é determinada pela tabela de Ida (vale nos dois sentidos).
+      </p>
+      <div id="tabelaOpcoes"></div>
+    </section>
+
+    <section id="secExportar" class="cartao oculto">
+      <h2>7. Exportar</h2>
+      <div class="linha">
+        <button id="btnPdf">Gerar PDF comparativo</button>
+        <span id="progressoPdf"></span>
+      </div>
+    </section>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+    <script>
+      /* ============================================================
+   ESTADO GLOBAL
+   ============================================================ */
+
+      let VIGENTE = null; // tabela vigente já estruturada (ver montarTabela)
+      let PROPOSTA = null; // tabela proposta já estruturada
+      let RESULTADO = null; // resultados do comparativo, reusados na tela e no PDF
+
+      const FAIXAS = ["Madrugada", "Manhã", "Entrepico", "Tarde", "Noite"];
+      // Intervalos das faixas, exibidos no relatório.
+      const FAIXA_INTERVALO = {
+        Madrugada: "00:00–05:59",
+        Manhã: "06:00–09:59",
+        Entrepico: "10:00–15:59",
+        Tarde: "16:00–18:59",
+        Noite: "19:00–23:59",
+      };
+
+      /* ============================================================
+   CARREGAR ARQUIVOS
+   ============================================================ */
+
+      document
+        .getElementById("btnComparar")
+        .addEventListener("click", comparar);
+      document.getElementById("btnPdf").addEventListener("click", gerarPdf);
+
+      async function comparar() {
+        limparErro();
+        const arqV = document.getElementById("arqVigente").files[0];
+        const arqP = document.getElementById("arqProposta").files[0];
+        if (!arqV || !arqP) {
+          mostrarErro("Selecione os dois arquivos (vigente e proposta).");
+          return;
+        }
+        try {
+          VIGENTE = montarTabela(JSON.parse(await arqV.text()), arqV.name);
+          PROPOSTA = montarTabela(JSON.parse(await arqP.text()), arqP.name);
+        } catch (e) {
+          mostrarErro("Erro ao ler/parsear um dos arquivos: " + e.message);
+          return;
+        }
+        RESULTADO = analisar(VIGENTE, PROPOSTA);
+        renderTudo();
+        revelarEtapas();
+      }
+
+      // Estrutura uma tabela (JSON) num formato de trabalho com seções, viagens e
+      // mapa de pesos de frequência semanal já resolvidos.
+      function montarTabela(raw, nomeArquivo) {
+        const mapaFreq = mapaFrequencias(raw);
+        return {
+          raw,
+          nome: nomeArquivo,
+          info: raw.Info || {},
+          ida: montarSentido(raw.Ida, mapaFreq),
+          volta: montarSentido(raw.Volta, mapaFreq),
+        };
+      }
+
+      function montarSentido(src, mapaFreq) {
+        src = src || {};
+        const partidas = src.Partidas || [];
+        const secoes = partidas.filter((p) => p.Secao === true);
+        const sentido = {
+          secoes,
+          distancias: src.Distancias || [],
+          tarifas: src.Tarifas || [],
+          frequencias: src.Frequencias || [],
+        };
+        sentido.viagens = montarViagens(sentido, mapaFreq);
+        return sentido;
+      }
+
+      /* ============================================================
+   MODELO (seções, trechos, frequências, identidade)
+   ============================================================ */
+
+      // Índice na lista triangular Distancias[]/Tarifas[] para o par de seções (i,k), i<k.
+      function idxTriangular(i, k) {
+        return (k * (k - 1)) / 2 + i;
+      }
+
+      // Mapa "Nome da frequência" -> peso semanal = (só feriado ? 0 : dias) × meses/12.
+      function mapaFrequencias(raw) {
+        const mapa = {};
+        (raw.Frequencias || []).forEach((f) => {
+          const dias = Array.isArray(f.Dias) ? f.Dias.length : 0;
+          const meses = Array.isArray(f.Meses) ? f.Meses.length : 12;
+          const regulares = f.TipoFeriado === 1 ? 0 : dias; // só-feriado não opera na semana
+          mapa[f.Nome] = regulares * (meses / 12);
+        });
+        return mapa;
+      }
+
+      function chaveSecao(p) {
+        return `${normalizar(p.Cidade)}||${normalizar(p.Parada)}`;
+      }
+      function chaveCidade(p) {
+        return normalizar(p.Cidade);
+      }
+      function chaveTrecho(a, b) {
+        return `${chaveSecao(a)} → ${chaveSecao(b)}`;
+      }
+      // Par de seções não ordenado, para venda e conexões (independe do sentido).
+      function parSecoes(a, b) {
+        return [chaveSecao(a), chaveSecao(b)].sort().join("##");
+      }
+      function parCidades(a, b) {
+        return [chaveCidade(a), chaveCidade(b)].sort().join("##");
+      }
+      function normalizar(s) {
+        return String(s == null ? "" : s)
+          .trim()
+          .replace(/\s+/g, " ");
+      }
+
+      function temHorario(secao, j) {
+        const h = (secao.Horarios || [])[j];
+        return h != null && String(h).trim() !== "";
+      }
+      function horaSecao(secao, j) {
+        return String((secao.Horarios || [])[j] || "").trim();
+      }
+      function temVenda(sentido, i, k) {
+        const t = (sentido.tarifas || [])[idxTriangular(i, k)];
+        return t != null && String(t).trim() !== "";
+      }
+
+      // Conjunto de pares de seção (por identidade) com venda — sempre a partir da Ida,
+      // onde ficam as tarifas; vale nos dois sentidos.
+      function conjuntoVenda(tab) {
+        const s = tab.ida.secoes;
+        const set = new Set();
+        for (let k = 1; k < s.length; k++) {
+          for (let i = 0; i < k; i++) {
+            if (temVenda(tab.ida, i, k)) set.add(parSecoes(s[i], s[k]));
+          }
+        }
+        return set;
+      }
+
+      // Cada coluna de horários vira uma viagem (mínimo de 2 seções atendidas).
+      function montarViagens(sentido, mapaFreq) {
+        const secoes = sentido.secoes;
+        const nCol = secoes.length ? (secoes[0].Horarios || []).length : 0;
+        const viagens = [];
+        for (let j = 0; j < nCol; j++) {
+          const servidas = [];
+          for (let s = 0; s < secoes.length; s++) {
+            if (temHorario(secoes[s], j)) servidas.push(s);
+          }
+          if (servidas.length < 2) continue;
+          const primeira = servidas[0];
+          const codigo = sentido.frequencias[j];
+          const peso = mapaFreq[codigo] != null ? mapaFreq[codigo] : 0;
+          viagens.push({
+            coluna: j,
+            servidas,
+            primeira,
+            codigo,
+            peso,
+            horaPartida: horaSecao(secoes[primeira], j),
+          });
+        }
+        return viagens;
+      }
+
+      // Numeração unificada das seções (união ordenada por identidade dos dois arquivos),
+      // para rotular padrões de viagem com números consistentes entre vigente e proposta.
+      function numeracaoUnificada(vig, prop) {
+        const listas = [vig.ida.secoes, prop.ida.secoes];
+        const ordem = [];
+        const idx = new Map();
+        const p = [0, 0];
+        const add = (s) => {
+          const k = chaveSecao(s);
+          if (!idx.has(k)) {
+            idx.set(k, ordem.length);
+            ordem.push(s);
+          }
+        };
+        while (p[0] < listas[0].length || p[1] < listas[1].length) {
+          const h0 = p[0] < listas[0].length ? listas[0][p[0]] : null;
+          const h1 = p[1] < listas[1].length ? listas[1][p[1]] : null;
+          if (h0 && idx.has(chaveSecao(h0))) {
+            p[0]++;
+            continue;
+          }
+          if (h1 && idx.has(chaveSecao(h1))) {
+            p[1]++;
+            continue;
+          }
+          if (!h0) {
+            add(h1);
+            p[1]++;
+            continue;
+          }
+          if (!h1) {
+            add(h0);
+            p[0]++;
+            continue;
+          }
+          if (chaveSecao(h0) === chaveSecao(h1)) {
+            add(h0);
+            p[0]++;
+            p[1]++;
+            continue;
+          }
+          // Heads diferem: se a seção da vigente ainda aparece adiante na proposta,
+          // emite primeiro a da proposta (que está sendo inserida); senão, a da vigente.
+          const h0NaProposta = listas[1]
+            .slice(p[1])
+            .some((s) => chaveSecao(s) === chaveSecao(h0));
+          if (h0NaProposta) {
+            add(h1);
+            p[1]++;
+          } else {
+            add(h0);
+            p[0]++;
+          }
+        }
+        const mapa = new Map();
+        ordem.forEach((s, n) => mapa.set(chaveSecao(s), n + 1));
+        return { lista: ordem, mapa };
+      }
+
+      // Padrão de uma viagem: identidade (tupla de seções servidas) + rótulos para exibição.
+      function padraoViagem(v, sentido, mapaNum) {
+        const chaves = v.servidas.map((s) => chaveSecao(sentido.secoes[s]));
+        return {
+          chave: chaves.join(">"),
+          rotulo: v.servidas
+            .map((s) => mapaNum.get(chaveSecao(sentido.secoes[s])))
+            .join("→"),
+          titulo: v.servidas
+            .map((s) => rotuloSecao(sentido.secoes[s]))
+            .join(" → "),
+        };
+      }
+
+      function faixaHorario(hhmm) {
+        const m = /^(\d{1,2}):(\d{2})/.exec(String(hhmm).trim());
+        if (!m) return null;
+        const min = (parseInt(m[1], 10) % 24) * 60 + parseInt(m[2], 10);
+        if (min < 6 * 60) return "Madrugada";
+        if (min < 10 * 60) return "Manhã";
+        if (min < 16 * 60) return "Entrepico";
+        if (min < 19 * 60) return "Tarde";
+        return "Noite";
+      }
+
+      /* ============================================================
+   ANÁLISE COMPARATIVA
+   ============================================================ */
+
+      function analisar(vig, prop) {
+        const numeracao = numeracaoUnificada(vig, prop);
+        return {
+          identificacao: analisarIdentificacao(vig, prop),
+          secoes: analisarSecoes(vig, prop),
+          trechos: analisarTrechos(vig, prop),
+          numeracao,
+          viagens: {
+            ida: combinarPadroes(vig.ida, prop.ida, numeracao.mapa),
+            volta: combinarPadroes(vig.volta, prop.volta, numeracao.mapa),
+          },
+          opcoes: analisarOpcoes(vig, prop),
+        };
+      }
+
+      // --- VALIDAÇÃO / IDENTIFICAÇÃO ---
+      function analisarIdentificacao(vig, prop) {
+        const campos = [
+          ["Autos", "Autos"],
+          ["Empresa", "Empresa"],
+          ["Letra do itinerário", "LetraItinerario"],
+          ["Via", "Via"],
+          ["Cidade origem", "CidadeOrigem"],
+          ["Cidade destino", "CidadeDestino"],
+          ["Data de publicação", "DataPublicacao"],
+        ];
+        const linhas = campos.map(([rotulo, chave]) => {
+          const v = vig.info[chave] ?? "";
+          const p = prop.info[chave] ?? "";
+          return {
+            rotulo,
+            vig: v,
+            prop: p,
+            diverge: normalizar(v) !== normalizar(p),
+          };
+        });
+        const avisos = [];
+        ["Autos", "LetraItinerario", "CidadeOrigem", "CidadeDestino"].forEach(
+          (c) => {
+            if (normalizar(vig.info[c] ?? "") !== normalizar(prop.info[c] ?? ""))
+              avisos.push(
+                `O campo "${c}" difere entre as tabelas — elas podem ser de linhas diferentes.`,
+              );
+          },
+        );
+        return { linhas, avisos };
+      }
+
+      // --- COMPARATIVO DE SEÇÕES ---
+      function analisarSecoes(vig, prop) {
+        const sv = vig.ida.secoes;
+        const sp = prop.ida.secoes;
+        const chavesV = new Set(sv.map(chaveSecao));
+        const chavesP = new Set(sp.map(chaveSecao));
+
+        const mantidas = sv.filter((s) => chavesP.has(chaveSecao(s)));
+        let restoV = sv.filter((s) => !chavesP.has(chaveSecao(s)));
+        let restoP = sp.filter((s) => !chavesV.has(chaveSecao(s)));
+
+        // Casa por cidade os não-pareados: mesma cidade, parada diferente = "parada alterada".
+        const alteradas = [];
+        restoV = restoV.filter((sv1) => {
+          const idx = restoP.findIndex(
+            (sp1) => chaveCidade(sp1) === chaveCidade(sv1),
+          );
+          if (idx >= 0) {
+            alteradas.push({ de: restoP.splice(idx, 1)[0], era: sv1 });
+            return false;
+          }
+          return true;
+        });
+
+        return {
+          mantidas,
+          adicionadas: restoP,
+          removidas: restoV,
+          alteradas,
+          nSecoesVig: sv.length,
+          nSecoesProp: sp.length,
+          nCidadesVig: new Set(sv.map(chaveCidade)).size,
+          nCidadesProp: new Set(sp.map(chaveCidade)).size,
+        };
+      }
+
+      // --- TRECHOS, VENDA, DISTÂNCIAS E TARIFAS ---
+      function mapaTrechosIda(tab) {
+        const s = tab.ida.secoes;
+        const map = new Map();
+        for (let k = 1; k < s.length; k++) {
+          for (let i = 0; i < k; i++) {
+            const idx = idxTriangular(i, k);
+            const tarifa = tab.ida.tarifas[idx];
+            map.set(chaveTrecho(s[i], s[k]), {
+              origem: s[i],
+              destino: s[k],
+              dist: tab.ida.distancias[idx],
+              tarifa,
+              venda: tarifa != null && String(tarifa).trim() !== "",
+            });
+          }
+        }
+        return map;
+      }
+
+      function analisarTrechos(vig, prop) {
+        const mv = mapaTrechosIda(vig);
+        const mp = mapaTrechosIda(prop);
+        const chaves = new Set([...mv.keys(), ...mp.keys()]);
+
+        const linhas = [];
+        chaves.forEach((key) => {
+          const v = mv.get(key) || null;
+          const p = mp.get(key) || null;
+          const ref = p || v;
+          linhas.push({
+            origem: rotuloSecao(ref.origem),
+            destino: rotuloSecao(ref.destino),
+            vendaVig: v ? v.venda : false,
+            vendaProp: p ? p.venda : false,
+            distVig: v ? v.dist : null,
+            distProp: p ? p.dist : null,
+            tarVig: v ? v.tarifa : null,
+            tarProp: p ? p.tarifa : null,
+            status: statusTrecho(v, p),
+          });
+        });
+        linhas.sort((a, b) =>
+          `${a.origem}${a.destino}`.localeCompare(`${b.origem}${b.destino}`, "pt"),
+        );
+
+        const vendaV = [...mv.values()].filter((t) => t.venda);
+        const vendaP = [...mp.values()].filter((t) => t.venda);
+
+        return {
+          linhas,
+          nVendaVig: vendaV.length,
+          nVendaProp: vendaP.length,
+          perdidos: linhas.filter((l) => l.vendaVig && !l.vendaProp),
+          ganhos: linhas.filter((l) => !l.vendaVig && l.vendaProp),
+          cidadesOfertadasVig: cidadesDeTrechos(vendaV),
+          cidadesOfertadasProp: cidadesDeTrechos(vendaP),
+          conexoesVig: conexoesIntermunicipais(vendaV),
+          conexoesProp: conexoesIntermunicipais(vendaP),
+        };
+      }
+
+      function statusTrecho(v, p) {
+        const vv = v && v.venda;
+        const pv = p && p.venda;
+        if (vv && pv) return "Mantém venda";
+        if (vv && !pv) return p ? "Perde venda" : "Trecho removido";
+        if (!vv && pv) return v ? "Ganha venda" : "Trecho novo com venda";
+        return "Sem venda em ambas";
+      }
+
+      function cidadesDeTrechos(trechos) {
+        const set = new Set();
+        trechos.forEach((t) => {
+          set.add(chaveCidade(t.origem));
+          set.add(chaveCidade(t.destino));
+        });
+        return set.size;
+      }
+
+      // Conexões intermunicipais = pares de CIDADES distintos (A≠B) com venda. Duas seções
+      // na mesma cidade não criam conexão nova.
+      function conexoesIntermunicipais(trechos) {
+        const set = new Set();
+        trechos.forEach((t) => {
+          if (chaveCidade(t.origem) !== chaveCidade(t.destino))
+            set.add(parCidades(t.origem, t.destino));
+        });
+        return set.size;
+      }
+
+      // --- VIAGENS (agrupadas por padrão de trajeto) ---
+      function agruparPorPadrao(sentido, mapaNum) {
+        const m = new Map();
+        sentido.viagens.forEach((v) => {
+          const p = padraoViagem(v, sentido, mapaNum);
+          let reg = m.get(p.chave);
+          if (!reg) {
+            reg = { rotulo: p.rotulo, titulo: p.titulo, geral: 0, porFaixa: {} };
+            m.set(p.chave, reg);
+          }
+          reg.geral += v.peso;
+          const f = faixaHorario(v.horaPartida) || "—";
+          reg.porFaixa[f] = (reg.porFaixa[f] || 0) + v.peso;
+        });
+        return m;
+      }
+
+      function combinarPadroes(sentidoVig, sentidoProp, mapaNum) {
+        const mv = agruparPorPadrao(sentidoVig, mapaNum);
+        const mp = agruparPorPadrao(sentidoProp, mapaNum);
+        const chaves = new Set([...mv.keys(), ...mp.keys()]);
+        const arr = [...chaves].map((k) => {
+          const a = mv.get(k);
+          const b = mp.get(k);
+          const ref = a || b;
+          return {
+            chave: k,
+            rotulo: ref.rotulo,
+            titulo: ref.titulo,
+            vig: a || { geral: 0, porFaixa: {} },
+            prop: b || { geral: 0, porFaixa: {} },
+          };
+        });
+        arr.sort((x, y) =>
+          x.rotulo.localeCompare(y.rotulo, undefined, { numeric: true }),
+        );
+        return arr;
+      }
+
+      // --- OPÇÕES DE VIAGEM (por trecho com venda) ---
+      function analisarOpcoes(vig, prop) {
+        const vendaV = conjuntoVenda(vig);
+        const vendaP = conjuntoVenda(prop);
+        const idaV = opcoesSentido(vig.ida, vendaV);
+        const idaP = opcoesSentido(prop.ida, vendaP);
+        const volV = opcoesSentido(vig.volta, vendaV);
+        const volP = opcoesSentido(prop.volta, vendaP);
+        return {
+          faixaVig: somarFaixas(idaV.porFaixa, volV.porFaixa),
+          faixaProp: somarFaixas(idaP.porFaixa, volP.porFaixa),
+          geralVig: idaV.geral + volV.geral,
+          geralProp: idaP.geral + volP.geral,
+          trechos: [
+            ...combinarTrechos(idaV.trechos, idaP.trechos, "Ida"),
+            ...combinarTrechos(volV.trechos, volP.trechos, "Volta"),
+          ],
+        };
+      }
+
+      function opcoesSentido(sentido, venda) {
+        const s = sentido.secoes;
+        const trechos = [];
+        const porFaixa = {};
+        let geral = 0;
+        for (let k = 1; k < s.length; k++) {
+          for (let i = 0; i < k; i++) {
+            if (!venda.has(parSecoes(s[i], s[k]))) continue;
+            let total = 0;
+            sentido.viagens.forEach((v) => {
+              if (v.servidas.includes(i) && v.servidas.includes(k)) {
+                total += v.peso;
+                const f = faixaHorario(horaSecao(s[i], v.coluna)) || "—";
+                porFaixa[f] = (porFaixa[f] || 0) + v.peso;
+                geral += v.peso;
+              }
+            });
+            trechos.push({
+              chave: chaveTrecho(s[i], s[k]),
+              rotulo: `${rotuloSecao(s[i])} → ${rotuloSecao(s[k])}`,
+              total,
+            });
+          }
+        }
+        return { trechos, porFaixa, geral };
+      }
+
+      function somarFaixas(a, b) {
+        const r = {};
+        FAIXAS.forEach((f) => (r[f] = (a[f] || 0) + (b[f] || 0)));
+        return r;
+      }
+
+      function combinarTrechos(av, bv, sentido) {
+        const ma = new Map(av.map((t) => [t.chave, t]));
+        const mb = new Map(bv.map((t) => [t.chave, t]));
+        const chaves = [...new Set([...ma.keys(), ...mb.keys()])];
+        return chaves
+          .sort((x, y) => x.localeCompare(y, "pt"))
+          .map((k) => {
+            const a = ma.get(k);
+            const b = mb.get(k);
+            const ref = a || b;
+            return {
+              sentido,
+              rotulo: ref.rotulo,
+              vig: a ? a.total : 0,
+              prop: b ? b.total : 0,
+            };
+          });
+      }
+
+      /* ============================================================
+   RENDERIZAÇÃO (tela)
+   ============================================================ */
+
+      function renderTudo() {
+        renderIdentificacao();
+        renderSecoes();
+        renderTrechos();
+        renderViagens();
+        renderOpcoes();
+      }
+
+      function renderIdentificacao() {
+        const r = RESULTADO.identificacao;
+        document.getElementById("avisosIdentificacao").innerHTML = r.avisos.length
+          ? r.avisos
+              .map((a) => `<div class="aviso">⚠ ${escaparHtml(a)}</div>`)
+              .join("")
+          : `<div class="dica">As tabelas parecem ser da mesma linha.</div>`;
+        const linhas = r.linhas
+          .map(
+            (c) =>
+              `<tr><th>${escaparHtml(c.rotulo)}</th><td${
+                c.diverge ? ' class="removida"' : ""
+              }>${escaparHtml(c.vig)}</td><td${
+                c.diverge ? ' class="adicionada"' : ""
+              }>${escaparHtml(c.prop)}</td></tr>`,
+          )
+          .join("");
+        document.getElementById("tabelaIdentificacao").innerHTML =
+          `<table><thead><tr><th>Campo</th><th>Vigente</th><th>Proposta</th></tr></thead><tbody>${linhas}</tbody></table>`;
+      }
+
+      function renderSecoes() {
+        const r = RESULTADO.secoes;
+        document.getElementById("resumoSecoes").innerHTML =
+          `<p>Seções: <strong>${r.nSecoesVig}</strong> → <strong>${r.nSecoesProp}</strong> ` +
+          `(${variacaoTexto(r.nSecoesVig, r.nSecoesProp)}). ` +
+          `Cidades atendidas: <strong>${r.nCidadesVig}</strong> → <strong>${r.nCidadesProp}</strong>.</p>` +
+          `<p class="dica">Mantidas: ${r.mantidas.length} · Adicionadas: ${r.adicionadas.length} · Removidas: ${r.removidas.length} · Parada alterada: ${r.alteradas.length}</p>`;
+
+        const linhas = [];
+        r.mantidas.forEach((s) =>
+          linhas.push(linhaSecao("Mantida", "mantida", rotuloSecao(s), "")),
+        );
+        r.adicionadas.forEach((s) =>
+          linhas.push(linhaSecao("Adicionada", "adicionada", "", rotuloSecao(s))),
+        );
+        r.removidas.forEach((s) =>
+          linhas.push(linhaSecao("Removida", "removida", rotuloSecao(s), "")),
+        );
+        r.alteradas.forEach((a) =>
+          linhas.push(
+            linhaSecao("Parada alterada", "", rotuloSecao(a.era), rotuloSecao(a.de)),
+          ),
+        );
+        document.getElementById("tabelaSecoes").innerHTML =
+          `<table><thead><tr><th>Situação</th><th>Vigente</th><th>Proposta</th></tr></thead><tbody>${linhas.join("")}</tbody></table>`;
+      }
+
+      function linhaSecao(rotulo, classe, vig, prop) {
+        return `<tr><td${classe ? ` class="${classe}"` : ""}>${escaparHtml(
+          rotulo,
+        )}</td><td>${escaparHtml(vig)}</td><td>${escaparHtml(prop)}</td></tr>`;
+      }
+
+      function renderTrechos() {
+        const r = RESULTADO.trechos;
+        document.getElementById("resumoTrechos").innerHTML =
+          `<p>Trechos com venda de passagem: <strong>${r.nVendaVig}</strong> → <strong>${r.nVendaProp}</strong> ` +
+          `(${variacaoTexto(r.nVendaVig, r.nVendaProp)}).</p>` +
+          `<p>Cidades ofertadas (com venda): <strong>${r.cidadesOfertadasVig}</strong> → <strong>${r.cidadesOfertadasProp}</strong> · ` +
+          `Conexões intermunicipais (pares de cidades): <strong>${r.conexoesVig}</strong> → <strong>${r.conexoesProp}</strong>.</p>` +
+          listaTrechos("Deixam de ser ofertados", r.perdidos) +
+          listaTrechos("Passam a ser ofertados", r.ganhos);
+
+        const corpo = r.linhas
+          .map(
+            (l) =>
+              `<tr>` +
+              `<td>${escaparHtml(l.origem)} → ${escaparHtml(l.destino)}</td>` +
+              `<td class="cen">${badgeStatus(l.status)}</td>` +
+              celulaNum(l.distVig) +
+              celulaNum(l.distProp) +
+              celulaDelta(l.distVig, l.distProp) +
+              celulaNum(l.tarVig) +
+              celulaNum(l.tarProp) +
+              celulaDelta(l.tarVig, l.tarProp) +
+              `</tr>`,
+          )
+          .join("");
+        document.getElementById("tabelaTrechos").innerHTML =
+          `<table><thead><tr><th>Trecho</th><th class="cen">Situação</th>` +
+          `<th class="num">Dist. vig.</th><th class="num">Dist. prop.</th><th class="num">Δ dist.</th>` +
+          `<th class="num">Tarifa vig.</th><th class="num">Tarifa prop.</th><th class="num">Δ tarifa</th>` +
+          `</tr></thead><tbody>${corpo}</tbody></table>` +
+          `<p class="dica">Distâncias e tarifas em km (a tarifa é expressa como distância tarifária). Δ = proposta − vigente.</p>`;
+      }
+
+      function listaTrechos(titulo, linhas) {
+        if (!linhas.length) return "";
+        const itens = linhas
+          .map((l) => `${escaparHtml(l.origem)} → ${escaparHtml(l.destino)}`)
+          .join("; ");
+        return `<p class="dica"><strong>${escaparHtml(titulo)} (${linhas.length}):</strong> ${itens}.</p>`;
+      }
+
+      function renderViagens() {
+        document.getElementById("legendaSecoes").innerHTML = legendaNumeracao();
+        const v = RESULTADO.viagens;
+        document.getElementById("tabelaViagens").innerHTML =
+          `<h3>Ida — por padrão de trajeto</h3>` +
+          v.ida.map(tabelaPadrao).join("") +
+          `<h3>Volta — por padrão de trajeto</h3>` +
+          v.volta.map(tabelaPadrao).join("") +
+          `<h3>Resumo geral (todos os padrões, ida e volta)</h3>` +
+          tabelaResumoViagens(v.ida.concat(v.volta));
+      }
+
+      function legendaNumeracao() {
+        const itens = RESULTADO.numeracao.lista
+          .map((s, n) => `<b>${n + 1}</b> = ${escaparHtml(rotuloSecao(s))}`)
+          .join(" · ");
+        return `Numeração das seções: ${itens}`;
+      }
+
+      // Tabela de um padrão de viagem: Geral + faixas, comparando vig/prop em viagens/semana.
+      function tabelaPadrao(p) {
+        const linhas = [linhaPadraoFaixa("Geral", p.vig.geral, p.prop.geral)];
+        FAIXAS.forEach((f) =>
+          linhas.push(
+            linhaPadraoFaixa(
+              `${f} (${FAIXA_INTERVALO[f]})`,
+              p.vig.porFaixa[f] || 0,
+              p.prop.porFaixa[f] || 0,
+            ),
+          ),
+        );
+        return (
+          `<h4><span class="padrao" title="${escaparHtml(p.titulo)}">Padrão ${escaparHtml(
+            p.rotulo,
+          )}</span> <span class="dica">(${escaparHtml(p.titulo)})</span></h4>` +
+          `<table><thead><tr><th>Categoria</th><th class="num">Sem. vig.</th>` +
+          `<th class="num">Sem. prop.</th><th class="num">Δ sem.</th></tr></thead>` +
+          `<tbody>${linhas.join("")}</tbody></table>`
+        );
+      }
+
+      function linhaPadraoFaixa(rotulo, a, b) {
+        return (
+          `<tr><td>${escaparHtml(rotulo)}</td>` +
+          `<td class="num">${formatarSemana(a)}</td>` +
+          `<td class="num">${formatarSemana(b)}</td>` +
+          celulaDeltaSemana(a, b) +
+          `</tr>`
+        );
+      }
+
+      // Resumo: colunas = Geral + 5 faixas; duas linhas por padrão (vigente e proposta) + TOTAL.
+      function tabelaResumoViagens(padroes) {
+        const cols = ["Geral", ...FAIXAS];
+        const cabecalho =
+          `<tr><th>Padrão</th><th>Tab.</th>` +
+          cols
+            .map(
+              (c) =>
+                `<th class="num">${escaparHtml(c === "Geral" ? "Geral" : c)}</th>`,
+            )
+            .join("") +
+          `</tr>`;
+        const valor = (reg, c) =>
+          c === "Geral" ? reg.geral : reg.porFaixa[c] || 0;
+
+        const corpo = padroes
+          .map((p) => {
+            const tdVig = cols
+              .map((c) => `<td class="num">${formatarSemana(valor(p.vig, c))}</td>`)
+              .join("");
+            const tdProp = cols
+              .map((c) => `<td class="num">${formatarSemana(valor(p.prop, c))}</td>`)
+              .join("");
+            return (
+              `<tr class="tab-vig"><td rowspan="2"><span class="padrao" title="${escaparHtml(
+                p.titulo,
+              )}">${escaparHtml(p.rotulo)}</span></td><td>Vig.</td>${tdVig}</tr>` +
+              `<tr><td>Prop.</td>${tdProp}</tr>`
+            );
+          })
+          .join("");
+
+        const totVig = somarPadroes(padroes, "vig");
+        const totProp = somarPadroes(padroes, "prop");
+        const linhaTotal =
+          `<tr class="total"><th rowspan="2">TOTAL</th><th>Vig.</th>` +
+          cols.map((c) => `<th class="num">${formatarSemana(totVig[c])}</th>`).join("") +
+          `</tr><tr class="total"><th>Prop.</th>` +
+          cols.map((c) => `<th class="num">${formatarSemana(totProp[c])}</th>`).join("") +
+          `</tr>`;
+
+        return (
+          `<table><thead>${cabecalho}</thead><tbody>${corpo}${linhaTotal}</tbody></table>` +
+          `<p class="dica">Valores em viagens/semana (média anual). Passe o mouse no número do padrão para ver as cidades.</p>`
+        );
+      }
+
+      function somarPadroes(padroes, lado) {
+        const t = { Geral: 0 };
+        FAIXAS.forEach((f) => (t[f] = 0));
+        padroes.forEach((p) => {
+          t.Geral += p[lado].geral;
+          FAIXAS.forEach((f) => (t[f] += p[lado].porFaixa[f] || 0));
+        });
+        return t;
+      }
+
+      function renderOpcoes() {
+        const o = RESULTADO.opcoes;
+        // Tabela A — soma ida+volta por faixa
+        const linhasA = [
+          linhaPadraoFaixa("Geral", o.geralVig, o.geralProp),
+          ...FAIXAS.map((f) =>
+            linhaPadraoFaixa(
+              `${f} (${FAIXA_INTERVALO[f]})`,
+              o.faixaVig[f] || 0,
+              o.faixaProp[f] || 0,
+            ),
+          ),
+        ];
+        const tabelaA =
+          `<h3>Opções de viagem — soma Ida + Volta por faixa horária</h3>` +
+          `<table><thead><tr><th>Faixa</th><th class="num">Sem. vig.</th>` +
+          `<th class="num">Sem. prop.</th><th class="num">Δ sem.</th></tr></thead>` +
+          `<tbody>${linhasA.join("")}</tbody></table>`;
+
+        // Tabela B — detalhamento por trecho (Ida depois Volta)
+        const corpoB = o.trechos
+          .map(
+            (t) =>
+              `<tr><td>${escaparHtml(t.sentido)}</td>` +
+              `<td>${escaparHtml(t.rotulo)}</td>` +
+              `<td class="num">${formatarSemana(t.vig)}</td>` +
+              `<td class="num">${formatarSemana(t.prop)}</td>` +
+              celulaDeltaSemana(t.vig, t.prop) +
+              `</tr>`,
+          )
+          .join("");
+        const tabelaB =
+          `<h3>Opções de viagem — detalhamento por trecho (Ida e Volta)</h3>` +
+          `<table><thead><tr><th>Sentido</th><th>Trecho</th><th class="num">Sem. vig.</th>` +
+          `<th class="num">Sem. prop.</th><th class="num">Δ sem.</th></tr></thead>` +
+          `<tbody>${corpoB}</tbody></table>`;
+
+        document.getElementById("tabelaOpcoes").innerHTML = tabelaA + tabelaB;
+      }
+
+      /* ============================================================
+   EXPORTAÇÃO PDF
+   ============================================================ */
+
+      const URL_FONTE_NORMAL =
+        "https://cdn.jsdelivr.net/npm/dejavu-fonts-ttf@2.37.3/ttf/DejaVuSans.ttf";
+      const URL_FONTE_BOLD =
+        "https://cdn.jsdelivr.net/npm/dejavu-fonts-ttf@2.37.3/ttf/DejaVuSans-Bold.ttf";
+      const PDF_MARGEM = 10;
+      let FONTE_B64 = null;
+      let FONTE_ATIVA = "helvetica";
+
+      async function gerarPdf() {
+        if (!RESULTADO) {
+          alert("Gere o comparativo antes de exportar.");
+          return;
+        }
+        const botao = document.getElementById("btnPdf");
+        botao.disabled = true;
+        try {
+          setProgressoPdf("Carregando fonte…");
+          await montarPdf();
+          setProgressoPdf("Pronto.");
+        } catch (e) {
+          setProgressoPdf("Erro: " + e.message);
+          alert("Erro ao gerar PDF: " + e.message);
+        } finally {
+          botao.disabled = false;
+        }
+      }
+
+      async function montarPdf() {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF({ unit: "mm", format: "a4" });
+        await registrarFontePdf(doc);
+        doc.setFont(FONTE_ATIVA, "normal");
+        const largura = doc.internal.pageSize.getWidth();
+        let y = 22;
+
+        doc.setFillColor(29, 78, 216);
+        doc.rect(0, 0, largura, 16, "F");
+        doc.setTextColor(255, 255, 255);
+        doc.setFont(FONTE_ATIVA, "bold");
+        doc.setFontSize(13);
+        doc.text(
+          pdfSeguro(`Relatório comparativo — linha ${codigoLinha(PROPOSTA)}`),
+          largura / 2,
+          10,
+          { align: "center" },
+        );
+        doc.setTextColor(0, 0, 0);
+        doc.setFont(FONTE_ATIVA, "normal");
+
+        const r = RESULTADO;
+
+        y = secaoPdf(doc, "2. Identificação da linha", y);
+        y = tabelaPdf(
+          doc,
+          [["Campo", "Vigente", "Proposta"]],
+          r.identificacao.linhas.map((c) => [c.rotulo, c.vig, c.prop]),
+          y,
+        );
+        if (r.identificacao.avisos.length)
+          y = textoPdf(doc, "Aviso: " + r.identificacao.avisos.join(" "), y);
+
+        y = secaoPdf(doc, "3. Comparativo de seções", y);
+        y = textoPdf(
+          doc,
+          `Seções: ${r.secoes.nSecoesVig} → ${r.secoes.nSecoesProp}. Cidades: ${r.secoes.nCidadesVig} → ${r.secoes.nCidadesProp}. ` +
+            `Mantidas ${r.secoes.mantidas.length}, adicionadas ${r.secoes.adicionadas.length}, removidas ${r.secoes.removidas.length}, parada alterada ${r.secoes.alteradas.length}.`,
+          y,
+        );
+
+        y = secaoPdf(doc, "4. Trechos, distâncias e tarifas", y);
+        y = textoPdf(
+          doc,
+          `Trechos com venda: ${r.trechos.nVendaVig} → ${r.trechos.nVendaProp}. ` +
+            `Cidades ofertadas: ${r.trechos.cidadesOfertadasVig} → ${r.trechos.cidadesOfertadasProp}. ` +
+            `Conexões intermunicipais (pares de cidades): ${r.trechos.conexoesVig} → ${r.trechos.conexoesProp}.`,
+          y,
+        );
+        y = tabelaPdf(
+          doc,
+          [["Trecho", "Situação", "Dist.vig", "Dist.prop", "Tar.vig", "Tar.prop"]],
+          r.trechos.linhas.map((l) => [
+            `${l.origem} → ${l.destino}`,
+            l.status,
+            formatarKm(l.distVig),
+            formatarKm(l.distProp),
+            formatarKm(l.tarVig),
+            formatarKm(l.tarProp),
+          ]),
+          y,
+        );
+
+        y = secaoPdf(doc, "5. Viagens ofertadas (viagens/semana)", y);
+        y = textoPdf(doc, "Numeração das seções: " + legendaTextoPdf(), y);
+        y = tabelaResumoViagensPdf(doc, r.viagens.ida.concat(r.viagens.volta), y);
+
+        y = secaoPdf(doc, "6. Opções de viagem", y);
+        y = textoPdf(doc, "Soma Ida + Volta por faixa horária", y, true);
+        y = tabelaPdf(
+          doc,
+          [["Faixa", "Sem.vig", "Sem.prop", "Δ"]],
+          [
+            ["Geral", formatarSemana(r.opcoes.geralVig), formatarSemana(r.opcoes.geralProp), formatarSemana(r.opcoes.geralProp - r.opcoes.geralVig)],
+            ...FAIXAS.map((f) => [
+              `${f} (${FAIXA_INTERVALO[f]})`,
+              formatarSemana(r.opcoes.faixaVig[f] || 0),
+              formatarSemana(r.opcoes.faixaProp[f] || 0),
+              formatarSemana((r.opcoes.faixaProp[f] || 0) - (r.opcoes.faixaVig[f] || 0)),
+            ]),
+          ],
+          y,
+        );
+        y = textoPdf(doc, "Detalhamento por trecho (Ida e Volta)", y, true);
+        y = tabelaPdf(
+          doc,
+          [["Sentido", "Trecho", "Sem.vig", "Sem.prop", "Δ"]],
+          r.opcoes.trechos.map((t) => [
+            t.sentido,
+            t.rotulo,
+            formatarSemana(t.vig),
+            formatarSemana(t.prop),
+            formatarSemana(t.prop - t.vig),
+          ]),
+          y,
+        );
+
+        doc.save(`Comparativo ${codigoLinha(PROPOSTA)} - ${carimboData()}.pdf`);
+      }
+
+      function legendaTextoPdf() {
+        return RESULTADO.numeracao.lista
+          .map((s, n) => `${n + 1}=${rotuloSecao(s)}`)
+          .join("; ");
+      }
+
+      function tabelaResumoViagensPdf(doc, padroes, y) {
+        const cols = ["Geral", ...FAIXAS];
+        const valor = (reg, c) => (c === "Geral" ? reg.geral : reg.porFaixa[c] || 0);
+        const body = [];
+        padroes.forEach((p) => {
+          body.push([
+            p.rotulo,
+            "Vig.",
+            ...cols.map((c) => formatarSemana(valor(p.vig, c))),
+          ]);
+          body.push(["", "Prop.", ...cols.map((c) => formatarSemana(valor(p.prop, c)))]);
+        });
+        const totVig = somarPadroes(padroes, "vig");
+        const totProp = somarPadroes(padroes, "prop");
+        body.push(["TOTAL", "Vig.", ...cols.map((c) => formatarSemana(totVig[c]))]);
+        body.push(["", "Prop.", ...cols.map((c) => formatarSemana(totProp[c]))]);
+        return tabelaPdf(doc, [["Padrão", "Tab.", "Geral", ...FAIXAS]], body, y);
+      }
+
+      function secaoPdf(doc, titulo, y) {
+        const largura = doc.internal.pageSize.getWidth() - 2 * PDF_MARGEM;
+        if (y > doc.internal.pageSize.getHeight() - 25) {
+          doc.addPage();
+          y = PDF_MARGEM;
+        }
+        doc.setFillColor(240, 242, 245);
+        doc.rect(PDF_MARGEM, y, largura, 7, "F");
+        doc.setFont(FONTE_ATIVA, "bold");
+        doc.setFontSize(11);
+        doc.text(pdfSeguro(titulo), PDF_MARGEM + 2, y + 5);
+        doc.setFont(FONTE_ATIVA, "normal");
+        return y + 11;
+      }
+
+      function textoPdf(doc, texto, y, negrito) {
+        const largura = doc.internal.pageSize.getWidth() - 2 * PDF_MARGEM;
+        if (y > doc.internal.pageSize.getHeight() - 20) {
+          doc.addPage();
+          y = PDF_MARGEM;
+        }
+        doc.setFont(FONTE_ATIVA, negrito ? "bold" : "normal");
+        doc.setFontSize(negrito ? 10 : 9);
+        const linhas = doc.splitTextToSize(pdfSeguro(texto), largura);
+        doc.text(linhas, PDF_MARGEM, y);
+        doc.setFont(FONTE_ATIVA, "normal");
+        return y + linhas.length * 4 + 2;
+      }
+
+      function tabelaPdf(doc, head, body, y) {
+        doc.autoTable({
+          startY: y,
+          margin: { left: PDF_MARGEM, right: PDF_MARGEM },
+          styles: { font: FONTE_ATIVA, fontSize: 7, cellPadding: 1 },
+          headStyles: { fillColor: [55, 65, 81], textColor: 255 },
+          head: head.map((r) => r.map(pdfSeguro)),
+          body: body.map((r) => r.map((c) => pdfSeguro(String(c == null ? "" : c)))),
+        });
+        return doc.lastAutoTable.finalY + 6;
+      }
+
+      async function registrarFontePdf(doc) {
+        try {
+          if (!FONTE_B64) {
+            FONTE_B64 = {
+              normal: await baixarBase64(URL_FONTE_NORMAL),
+              bold: await baixarBase64(URL_FONTE_BOLD),
+            };
+          }
+          doc.addFileToVFS("DejaVuSans.ttf", FONTE_B64.normal);
+          doc.addFont("DejaVuSans.ttf", "DejaVu", "normal");
+          doc.addFileToVFS("DejaVuSans-Bold.ttf", FONTE_B64.bold);
+          doc.addFont("DejaVuSans-Bold.ttf", "DejaVu", "bold");
+          FONTE_ATIVA = "DejaVu";
+        } catch (e) {
+          FONTE_ATIVA = "helvetica";
+        }
+      }
+
+      async function baixarBase64(url) {
+        const resp = await fetch(url);
+        if (!resp.ok) throw new Error("fonte HTTP " + resp.status);
+        const bytes = new Uint8Array(await resp.arrayBuffer());
+        let bin = "";
+        const passo = 0x8000;
+        for (let i = 0; i < bytes.length; i += passo) {
+          bin += String.fromCharCode.apply(null, bytes.subarray(i, i + passo));
+        }
+        return btoa(bin);
+      }
+
+      // Sem a fonte Unicode (fallback Helvetica/Latin-1), troca a seta e remove não-Latin-1.
+      function pdfSeguro(s) {
+        const txt = String(s == null ? "" : s);
+        if (FONTE_ATIVA === "DejaVu") return txt;
+        return txt.replace(/→/g, ">").replace(/[^\x00-\xFF]/g, "?");
+      }
+
+      /* ============================================================
+   UTILITÁRIOS
+   ============================================================ */
+
+      function rotuloSecao(p) {
+        return p ? `${normalizar(p.Cidade)} - ${normalizar(p.Parada)}` : "?";
+      }
+
+      function formatarKm(v) {
+        const n = paraNumero(v);
+        return isNaN(n) ? "—" : n.toFixed(2).replace(".", ",");
+      }
+      function formatarSemana(n) {
+        return (n || 0).toFixed(1).replace(".", ",");
+      }
+      function paraNumero(v) {
+        if (v == null) return NaN;
+        const s = String(v).trim();
+        return s === "" ? NaN : parseFloat(s.replace(/\./g, "").replace(",", "."));
+      }
+
+      function celulaNum(v) {
+        return `<td class="num">${formatarKm(v)}</td>`;
+      }
+      function celulaDelta(vig, prop) {
+        const a = paraNumero(vig),
+          b = paraNumero(prop);
+        if (isNaN(a) || isNaN(b)) return `<td class="num">—</td>`;
+        const d = b - a;
+        const pct = a !== 0 ? ` (${formatarPct((d / a) * 100)})` : "";
+        const cls = d > 0 ? "neg" : d < 0 ? "pos" : "";
+        return `<td class="num ${cls}">${(d >= 0 ? "+" : "") + d.toFixed(2).replace(".", ",")}${pct}</td>`;
+      }
+      function celulaDeltaSemana(a, b) {
+        const d = (b || 0) - (a || 0);
+        const cls = d > 0 ? "pos" : d < 0 ? "neg" : "";
+        return `<td class="num ${cls}">${(d >= 0 ? "+" : "") + formatarSemana(d)}</td>`;
+      }
+      function formatarPct(v) {
+        return (v >= 0 ? "+" : "") + v.toFixed(1).replace(".", ",") + "%";
+      }
+
+      // Texto de variação para contagens inteiras (seções, trechos).
+      function variacaoTexto(a, b) {
+        const d = b - a;
+        if (d === 0) return "sem variação";
+        const pct = a !== 0 ? ` = ${formatarPct((d / a) * 100)}` : "";
+        return `${d > 0 ? "+" : ""}${d}${pct}`;
+      }
+
+      function badgeStatus(status) {
+        const mapa = {
+          "Mantém venda": "ok",
+          "Perde venda": "erro",
+          "Trecho removido": "erro",
+          "Ganha venda": "info",
+          "Trecho novo com venda": "info",
+          "Sem venda em ambas": "pendente",
+        };
+        return `<span class="badge ${mapa[status] || "pendente"}">${escaparHtml(status)}</span>`;
+      }
+
+      function codigoLinha(tab) {
+        const info = tab.info || {};
+        return `${info.Autos || ""}${info.LetraItinerario || ""}`.trim() || "linha";
+      }
+
+      function carimboData() {
+        const d = new Date();
+        const z = (n) => String(n).padStart(2, "0");
+        return `${z(d.getDate())}-${z(d.getMonth() + 1)}-${d.getFullYear()}-${z(d.getHours())}-${z(d.getMinutes())}`;
+      }
+
+      function escaparHtml(s) {
+        return String(s == null ? "" : s)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&#39;");
+      }
+
+      function setProgressoPdf(txt) {
+        document.getElementById("progressoPdf").textContent = txt;
+      }
+      function mostrarErro(txt) {
+        document.getElementById("areaErro").textContent = txt;
+      }
+      function limparErro() {
+        document.getElementById("areaErro").textContent = "";
+      }
+
+      function revelarEtapas() {
+        [
+          "secIdentificacao",
+          "secSecoes",
+          "secTrechos",
+          "secViagens",
+          "secOpcoes",
+          "secExportar",
+        ].forEach((id) =>
+          document.getElementById(id).classList.remove("oculto"),
+        );
+      }
+    </script>
+  </body>
+</html>
